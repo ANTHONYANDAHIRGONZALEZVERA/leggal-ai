@@ -18,6 +18,9 @@
 ## Frontend (frontend/)
 | Fecha | Paquete | Versión | Para qué | Quién |
 |---|---|---|---|---|
+| 2026-11-14 | @expo-google-fonts/instrument-serif | 0.4.1 | Fuente Instrument Serif cursiva del diseño (F05) | Tony |
+| 2026-11-14 | @expo-google-fonts/plus-jakarta-sans | 0.4.2 | Fuente Plus Jakarta Sans del diseño (F05) | Tony |
+| 2026-11-14 | @shopify/react-native-skia | 2.14.0 | Dibujar las esferas animadas e íconos del diseño (F06) | Tony |
 | 2026-11-14 | @expo/ui | 58.0.28 | Componentes nativos (SwiftUI/Compose); peer opcional de expo-router | Tony |
 | 2026-11-14 | @hookform/resolvers | 7.0.6 | Conecta los esquemas de Zod con React Hook Form (F04) | Tony |
 | 2026-11-14 | @tanstack/react-query | 5.107.1 | Peticiones a la API con caché y reintentos (F04) | Tony |
