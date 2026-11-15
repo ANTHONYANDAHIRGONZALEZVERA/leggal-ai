@@ -1,14 +1,14 @@
 import { View } from 'react-native';
 import Animated, { type CSSAnimationKeyframes } from 'react-native-reanimated';
 
-import { colors, gradients } from '@/theme';
+import { colors, gradients, motion } from '@/theme';
 
 const ANCHO = 140;
 const ALTO = 4;
 
 // Llenado de izquierda a derecha animando el ancho. Es seguro para el
 // rendimiento porque el relleno es absoluto y sin hijos: no obliga a
-// recalcular nada más de la pantalla. (scaleX desde 0 falla en Android.)
+// recalcular nada más de la pantalla.
 const llenar: CSSAnimationKeyframes = {
   from: { width: 0 },
   to: { width: ANCHO },
@@ -51,7 +51,7 @@ export function BarraCarga({ activa, duracion }: Props) {
             animationDuration: duracion,
             animationFillMode: 'forwards',
             // Arranca rápido y frena al final, como una carga real que termina.
-            animationTimingFunction: 'cubic-bezier(0.33, 0, 0.2, 1)',
+            animationTimingFunction: motion.curvaCarga,
           }}
         />
       )}

@@ -24,6 +24,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { motion } from '@/theme';
+
 // Esfera cromada del diseño, dibujada con Skia en lugar de exportarla como
 // imagen: se ve nítida en cualquier pantalla y conserva su animación.
 
@@ -158,7 +160,7 @@ export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, entrad
             animationName: intro,
             animationDuration: 1400,
             animationFillMode: 'both',
-            animationTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+            animationTimingFunction: motion.curvaEntrada,
           },
       ]}>
       <Animated.View

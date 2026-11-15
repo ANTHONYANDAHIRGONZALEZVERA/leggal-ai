@@ -1,4 +1,4 @@
-import { Easing } from 'react-native-reanimated';
+import { cubicBezier, Easing } from 'react-native-reanimated';
 
 // Escala de espacios en la cuadrícula de 4 pt. El diseño usa 24 como margen
 // lateral de pantalla y 12/14 entre campos; se toma el paso más cercano.
@@ -50,4 +50,8 @@ export const motion = {
   // Curvas del skill de animación: nunca ease-in en interfaz.
   easeOut: Easing.bezier(0.23, 1, 0.32, 1),
   easeInOut: Easing.bezier(0.77, 0, 0.175, 1),
+  // Curvas para animaciones CSS de Reanimated. En Android no acepta el texto
+  // "cubic-bezier(...)": hay que usar la función cubicBezier.
+  curvaEntrada: cubicBezier(0.2, 0.8, 0.2, 1),
+  curvaCarga: cubicBezier(0.33, 0, 0.2, 1),
 } as const;
