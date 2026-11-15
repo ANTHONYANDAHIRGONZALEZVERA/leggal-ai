@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { View, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, gradients } from '@/theme';
 
 import { Esfera } from './esfera';
 
-type Posicion = { ancho: number; alto: number; top: number; left?: number; right?: number };
+type Posicion = { ancho: number; alto: number; top: DimensionValue; left?: DimensionValue; right?: DimensionValue };
 
 type Props = {
   tono?: 'claro' | 'oscuro';

@@ -1,5 +1,5 @@
-import { useId, useState } from 'react';
-import { TextInput, View, type TextInputProps } from 'react-native';
+import { useId, useState, type Ref } from 'react';
+import { TextInput, View, type TextInputInstance, type TextInputProps } from 'react-native';
 
 import { colors, fontFamily, radius, shadows, sizes, spacing } from '@/theme';
 
@@ -8,11 +8,13 @@ import { Texto } from './texto';
 type Props = Omit<TextInputProps, 'style'> & {
   etiqueta: string;
   error?: string;
+  /** Para pasar el foco al siguiente campo con la tecla "siguiente". */
+  ref?: Ref<TextInputInstance>;
 };
 
 // Campo con etiqueta arriba, como en Login y Registro. Al enfocarlo el borde
 // pasa a morado con un halo suave; con error, borde y mensaje en rojo.
-export function CampoTexto({ etiqueta, error, onFocus, onBlur, ...props }: Props) {
+export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, ...props }: Props) {
   const [enfocado, setEnfocado] = useState(false);
   const id = useId();
 
@@ -24,6 +26,7 @@ export function CampoTexto({ etiqueta, error, onFocus, onBlur, ...props }: Props
         {etiqueta}
       </Texto>
       <TextInput
+        ref={ref}
         accessibilityLabelledBy={id}
         accessibilityLabel={etiqueta}
         placeholderTextColor={colors.textoSecundario}

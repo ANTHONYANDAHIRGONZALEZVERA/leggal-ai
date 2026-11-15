@@ -44,6 +44,7 @@ export const motion = {
   presion: 120,
   estado: 180,
   entrada: 250,
+  lento: 600,
   // Curvas del skill de animación: nunca ease-in en interfaz.
   easeOut: Easing.bezier(0.23, 1, 0.32, 1),
   easeInOut: Easing.bezier(0.77, 0, 0.175, 1),
