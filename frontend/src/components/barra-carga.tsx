@@ -6,11 +6,12 @@ import { colors, gradients } from '@/theme';
 const ANCHO = 140;
 const ALTO = 4;
 
-// Llenado de izquierda a derecha. Se anima scaleX (transformación, en el hilo
-// de UI) en lugar de width, para que sea fluido aunque la app esté ocupada.
+// Llenado de izquierda a derecha animando el ancho. Es seguro para el
+// rendimiento porque el relleno es absoluto y sin hijos: no obliga a
+// recalcular nada más de la pantalla. (scaleX desde 0 falla en Android.)
 const llenar: CSSAnimationKeyframes = {
-  from: { transform: [{ scaleX: 0 }] },
-  to: { transform: [{ scaleX: 1 }] },
+  from: { width: 0 },
+  to: { width: ANCHO },
 };
 
 type Props = {
@@ -39,10 +40,13 @@ export function BarraCarga({ activa, duracion }: Props) {
       {activa && (
         <Animated.View
           style={{
-            flex: 1,
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 0,
             borderRadius: ALTO / 2,
             backgroundImage: gradients.carga,
-            transformOrigin: 'left',
             animationName: llenar,
             animationDuration: duracion,
             animationFillMode: 'forwards',
