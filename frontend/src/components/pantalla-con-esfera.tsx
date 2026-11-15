@@ -35,7 +35,9 @@ export function PantallaConEsfera({ tono = 'claro', decoracion, children, style 
           {decoracion}
         </View>
       )}
-      <View style={[{ flex: 1, paddingTop: top, paddingBottom: bottom }, style]}>{children}</View>
+      {/* zIndex explícito: el contenido (botones, textos) siempre queda por
+          encima de esferas y ondas, aunque alguna capa tenga transformaciones. */}
+      <View style={[{ flex: 1, zIndex: 1, paddingTop: top, paddingBottom: bottom }, style]}>{children}</View>
     </View>
   );
 }

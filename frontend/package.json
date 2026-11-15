@@ -1,7 +1,7 @@
 {
   "name": "leggal-ai-frontend",
   "version": "1.0.0",
-  "main": "index",
+  "main": "expo-router/entry",
   "engines": {
     "node": ">=26.13.0 <27"
   },
