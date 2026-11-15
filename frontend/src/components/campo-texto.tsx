@@ -77,7 +77,7 @@ export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, secureTextEn
             accessibilityLabel={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             onPress={() => setVisible((v) => !v)}
             style={{ width: sizes.tactilMinimo, height: sizes.tactilMinimo, alignItems: 'center', justifyContent: 'center', marginRight: spacing.xxs }}>
-            <Icono nombre={visible ? 'ojoCerrado' : 'ojo'} color={colors.textoSecundario} />
+            <Icono nombre={visible ? 'ojo' : 'ojoCerrado'} color={colors.textoSecundario} />
           </Presionable>
         )}
       </View>
