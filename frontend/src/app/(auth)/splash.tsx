@@ -22,6 +22,10 @@ const DISENO = { ancho: 390, alto: 844 };
 // de la sesión guardada (lo que tarde, con este valor como referencia).
 const DURACION_CARGA = 2500;
 
+// Las ondas miden 160 y su cresta más alta queda a ~120 del borde inferior;
+// el bloque de abajo empieza justo encima con un pequeño respiro.
+const ALTO_ONDAS = 130;
+
 // "Splash" del diseño: fondo oscuro, esfera grande que aparece girando, anillo
 // y esfera pequeña flotando, ondas al pie, logo y botón Comenzar.
 export default function Splash() {
@@ -38,7 +42,8 @@ export default function Splash() {
   const comenzar = () => {
     if (cargando) return;
     setCargando(true);
-    temporizador.current = setTimeout(() => router.replace('/iniciar-sesion'), DURACION_CARGA);
+    // Se navega un instante después de llenarse, para que se vea la barra completa.
+    temporizador.current = setTimeout(() => router.replace('/iniciar-sesion'), DURACION_CARGA + 200);
   };
 
   return (
@@ -46,7 +51,14 @@ export default function Splash() {
       tono="oscuro"
       decoracion={
         <>
-          <Anillo ancho={240 * x} alto={160 * x} tono="oscuro" style={{ position: 'absolute', left: -80 * x, top: 120 * y }} />
+          {/* Un poco más arriba y a la izquierda que en el diseño, para que no
+              se pegue a la esfera central en pantallas angostas. */}
+          <Anillo
+            ancho={240 * x}
+            alto={160 * x}
+            tono="oscuro"
+            style={{ position: 'absolute', left: -115 * x, top: 70 * y }}
+          />
           <Esfera
             {...principal}
             tono="oscuro"
@@ -59,7 +71,8 @@ export default function Splash() {
             tono="oscuro"
             ciclo={10000}
             flotar
-            style={{ position: 'absolute', right: -60 * x, top: 470 * y }}
+            // Bajo el texto del logo y más hacia el borde, para no tapar "AI".
+            style={{ position: 'absolute', right: -85 * x, top: 590 * y }}
           />
           <Ondas juego="splash" style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }} />
         </>
@@ -75,8 +88,10 @@ export default function Splash() {
 
       <View style={{ flex: 1 }} />
 
-      <Aparecer retraso={1000} style={{ alignItems: 'center', gap: 18, paddingBottom: spacing.xxxl }}>
-        <BarraCarga activa={cargando} />
+      {/* Queda por encima de las ondas (no dentro de ellas) para que el botón
+          y la firma se lean limpios sobre el fondo oscuro. */}
+      <Aparecer retraso={1000} style={{ alignItems: 'center', gap: 18, paddingBottom: ALTO_ONDAS }}>
+        <BarraCarga activa={cargando} duracion={DURACION_CARGA} />
         <Boton titulo="Comenzar" variante="vidrio" onPress={comenzar} />
         <Texto variante="nota" style={{ color: colors.splash.texto }}>
           por ACCONS

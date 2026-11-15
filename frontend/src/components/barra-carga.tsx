@@ -1,23 +1,29 @@
 import { View } from 'react-native';
-import Animated, { useReducedMotion, type CSSAnimationKeyframes } from 'react-native-reanimated';
+import Animated, { type CSSAnimationKeyframes } from 'react-native-reanimated';
 
 import { colors, gradients } from '@/theme';
 
 const ANCHO = 140;
 const ALTO = 4;
-const TRAMO = ANCHO * 0.4;
 
-// @keyframes "load": un tramo de luz recorre la barra de izquierda a derecha.
-const recorrer: CSSAnimationKeyframes = {
-  from: { transform: [{ translateX: -TRAMO }] },
-  to: { transform: [{ translateX: ANCHO }] },
+// Llenado de izquierda a derecha. Se anima scaleX (transformación, en el hilo
+// de UI) en lugar de width, para que sea fluido aunque la app esté ocupada.
+const llenar: CSSAnimationKeyframes = {
+  from: { transform: [{ scaleX: 0 }] },
+  to: { transform: [{ scaleX: 1 }] },
 };
 
-// Barra de carga del Splash. Se ve vacía desde el inicio y el tramo de luz
-// solo aparece y recorre la pista mientras está activa.
-export function BarraCarga({ activa }: { activa: boolean }) {
-  const reducido = useReducedMotion();
+type Props = {
+  /** Empieza a llenarse cuando pasa a true. */
+  activa: boolean;
+  /** Tiempo del llenado completo, en ms. */
+  duracion: number;
+};
 
+// Barra de carga del Splash: la pista se ve vacía desde el inicio y al
+// activarse se llena una sola vez. Es información del estado (cuánto falta),
+// por eso se mantiene aunque el sistema pida reducir movimiento.
+export function BarraCarga({ activa, duracion }: Props) {
   return (
     <View
       accessibilityRole="progressbar"
@@ -32,23 +38,17 @@ export function BarraCarga({ activa }: { activa: boolean }) {
       }}>
       {activa && (
         <Animated.View
-          style={[
-            {
-              width: TRAMO,
-              height: ALTO,
-              borderRadius: ALTO / 2,
-              backgroundImage: gradients.carga,
-            },
-            // Con "reducir movimiento" queda quieta al centro como indicador estático.
-            reducido
-              ? { transform: [{ translateX: (ANCHO - TRAMO) / 2 }] }
-              : {
-                  animationName: recorrer,
-                  animationDuration: 1600,
-                  animationIterationCount: 'infinite',
-                  animationTimingFunction: 'ease-in-out',
-                },
-          ]}
+          style={{
+            flex: 1,
+            borderRadius: ALTO / 2,
+            backgroundImage: gradients.carga,
+            transformOrigin: 'left',
+            animationName: llenar,
+            animationDuration: duracion,
+            animationFillMode: 'forwards',
+            // Arranca rápido y frena al final, como una carga real que termina.
+            animationTimingFunction: 'cubic-bezier(0.33, 0, 0.2, 1)',
+          }}
         />
       )}
     </View>
