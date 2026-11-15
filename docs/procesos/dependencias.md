@@ -50,6 +50,16 @@
 | 2026-11-14 | zod | 4.6.7 | Validación de datos y formularios (F04) | Tony |
 | 2026-11-14 | zustand | 5.1.0 | Estado global (sesión) (F04) | Tony |
 
+Solo para desarrollo (`devDependencies`, no van dentro de la app):
+| Fecha | Paquete | Versión | Para qué | Quién |
+|---|---|---|---|---|
+| 2026-11-15 | @testing-library/react-native | 14.1.0 | Probar componentes como los usa una persona: tocar, escribir, leer (F13) | Tony |
+| 2026-11-15 | @types/jest | 30.0.0 | Tipos de TypeScript para las pruebas (F13) | Tony |
+| 2026-11-15 | eslint | 9.39.5 | Revisar estilo y errores comunes del código (F13) | Tony |
+| 2026-11-15 | eslint-config-expo | 58.0.4 | Reglas de ESLint recomendadas por Expo (F13) | Tony |
+| 2026-11-15 | jest | 30.5.2 | Correr las pruebas automáticas; jest-expo 58 exige Jest 30 (F13) | Tony |
+| 2026-11-15 | jest-expo | 58.0.14 | Configuración de Jest para Expo y React Native (F13) | Tony |
+
 Quitados en F04 (solo los usaba el ejemplo de la plantilla): expo-device, expo-glass-effect, expo-web-browser.
 
 ## Backend (backend/)

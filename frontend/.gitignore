@@ -44,3 +44,4 @@ example
 
 # Skia web: se copia en postinstall desde node_modules
 public/canvaskit.wasm
+coverage/
