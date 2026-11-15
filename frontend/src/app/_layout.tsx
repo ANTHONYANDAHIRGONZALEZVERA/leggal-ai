@@ -3,10 +3,9 @@ import { Stack } from 'expo-router/stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
-import { useSkiaListo } from '@/hooks/use-skia-listo';
 import { colors, fuentes } from '@/theme';
 
-// El splash nativo se mantiene hasta tener las fuentes (y Skia en web): así
+// El splash nativo se mantiene hasta tener las fuentes: así
 // ninguna pantalla se dibuja un instante con la fuente del sistema.
 SplashScreen.preventAutoHideAsync();
 
@@ -14,9 +13,8 @@ SplashScreen.preventAutoHideAsync();
 // La redirección según la sesión (auth → onboarding → tabs) se agrega en F10.
 export default function RootLayout() {
   const [cargadas, error] = useFonts(fuentes);
-  const skiaListo = useSkiaListo();
   // Si una fuente falla se sigue con la del sistema en vez de bloquear la app.
-  const listo = (cargadas || error !== null) && skiaListo;
+  const listo = cargadas || error !== null;
 
   useEffect(() => {
     if (listo) SplashScreen.hide();
