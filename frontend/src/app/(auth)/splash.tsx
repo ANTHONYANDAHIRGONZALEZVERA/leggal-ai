@@ -24,7 +24,7 @@ const DURACION_CARGA = 2500;
 
 // Las ondas miden 160 y su cresta más alta queda a ~120 del borde inferior;
 // el bloque de abajo empieza justo encima con un pequeño respiro.
-const ALTO_ONDAS = 130;
+const ALTO_ONDAS = 95;
 
 // "Splash" del diseño: fondo oscuro, esfera grande que aparece girando, anillo
 // y esfera pequeña flotando, ondas al pie, logo y botón Comenzar.
@@ -79,7 +79,7 @@ export default function Splash() {
       }>
       <StatusBar style="light" />
 
-      <Aparecer retraso={500} style={{ marginTop: 500 * y - spacing.xxxl, alignItems: 'center', gap: spacing.sm }}>
+      <Aparecer retraso={500} style={{ marginTop: 520 * y - spacing.xxxl, alignItems: 'center', gap: spacing.sm }}>
         <Logo />
         <Texto variante="subtitulo" style={{ color: colors.splash.texto, fontSize: 15 }}>
           Asistencia y trazabilidad jurídica
