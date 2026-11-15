@@ -50,7 +50,7 @@ const paletas = {
     sombra: 'rgba(64,52,128,0.38)',
     brillo: 'rgba(255,255,255,0.95)',
     halo: 'rgba(60,40,150,0.35)',
-    iris: 0.6,
+    iris: 0.75,
   },
   // Splash sobre fondo oscuro: más contraste y halo morado.
   oscuro: {
@@ -59,7 +59,7 @@ const paletas = {
     sombra: 'rgba(10,6,40,0.55)',
     brillo: 'rgba(255,255,255,0.8)',
     halo: 'rgba(124,92,255,0.6)',
-    iris: 0.8,
+    iris: 0.95,
   },
 } as const;
 
@@ -117,17 +117,20 @@ export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, entrad
 
   const fase = useSharedValue(0);
   const giro = useSharedValue(0);
+  const orbita = useSharedValue(0);
 
   useEffect(() => {
     // "Reducir movimiento": la esfera queda quieta en su primera pose.
     if (reducido) return;
     fase.set(withRepeat(withTiming(POSES.length, { duration: ciclo, easing: Easing.linear }), -1));
-    giro.set(withRepeat(withTiming(2 * Math.PI, { duration: 6000, easing: Easing.linear }), -1));
+    giro.set(withRepeat(withTiming(2 * Math.PI, { duration: 4000, easing: Easing.linear }), -1));
+    orbita.set(withRepeat(withTiming(2 * Math.PI, { duration: 7000, easing: Easing.linear }), -1));
     return () => {
       cancelAnimation(fase);
       cancelAnimation(giro);
+      cancelAnimation(orbita);
     };
-  }, [reducido, ciclo, fase, giro]);
+  }, [reducido, ciclo, fase, giro, orbita]);
 
   const forma = usePathValue((p) => {
     'worklet';
@@ -143,7 +146,14 @@ export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, entrad
   });
 
   const centroIris = vec(m + w * 0.28 + (w * 0.58) / 2, m + h * 0.12 + (h * 0.6) / 2);
-  const giroIris = useDerivedValue(() => [{ rotate: giro.get() }]);
+  // El reflejo gira sobre sí mismo y a la vez recorre un círculo pequeño
+  // dentro de la esfera: así los colores se desplazan y el brillo se nota vivo.
+  const radioOrbita = w * 0.12;
+  const giroIris = useDerivedValue(() => [
+    { translateX: Math.cos(orbita.get()) * radioOrbita },
+    { translateY: Math.sin(orbita.get()) * radioOrbita },
+    { rotate: giro.get() },
+  ]);
 
   // Dos capas: la de fuera hace la entrada y la de dentro flota, para que
   // sus transformaciones no se pisen entre sí.

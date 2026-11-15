@@ -4,7 +4,8 @@ import Animated, { useReducedMotion, type CSSAnimationKeyframes } from 'react-na
 
 // Ondas del pie de Splash y Login. En el diseño el SVG mide 780 de ancho (dos
 // pantallas de 390) y se desplaza 390: al terminar el ciclo la onda coincide
-// consigo misma, así el bucle no tiene salto.
+// consigo misma, así el bucle no tiene salto. Colores y velocidades van más
+// marcados que en el diseño a pedido del equipo, para que se noten en el teléfono.
 const ANCHO_DISENO = 390;
 
 type Capa = { d: string; color: string; duracion: number; inversa?: boolean };
@@ -13,16 +14,16 @@ const juegos = {
   splash: {
     alto: 160,
     capas: [
-      { d: 'M0 80 C 65 40, 130 40, 195 80 S 325 120, 390 80 S 520 40, 585 80 S 715 120, 780 80 V160 H0Z', color: 'rgba(124,92,255,0.16)', duracion: 10000 },
-      { d: 'M0 100 C 65 130, 130 130, 195 100 S 325 70, 390 100 S 520 130, 585 100 S 715 70, 780 100 V160 H0Z', color: 'rgba(95,227,242,0.10)', duracion: 16000, inversa: true },
-      { d: 'M0 120 C 65 100, 130 100, 195 120 S 325 140, 390 120 S 520 100, 585 120 S 715 140, 780 120 V160 H0Z', color: 'rgba(244,163,230,0.08)', duracion: 22000 },
+      { d: 'M0 80 C 65 40, 130 40, 195 80 S 325 120, 390 80 S 520 40, 585 80 S 715 120, 780 80 V160 H0Z', color: 'rgba(124,92,255,0.30)', duracion: 7000 },
+      { d: 'M0 100 C 65 130, 130 130, 195 100 S 325 70, 390 100 S 520 130, 585 100 S 715 70, 780 100 V160 H0Z', color: 'rgba(95,227,242,0.22)', duracion: 11000, inversa: true },
+      { d: 'M0 120 C 65 100, 130 100, 195 120 S 325 140, 390 120 S 520 100, 585 120 S 715 140, 780 120 V160 H0Z', color: 'rgba(244,163,230,0.18)', duracion: 15000 },
     ],
   },
   acceso: {
     alto: 80,
     capas: [
-      { d: 'M0 45 C 65 18, 130 18, 195 45 S 325 72, 390 45 S 520 18, 585 45 S 715 72, 780 45 V80 H0Z', color: 'rgba(124,92,255,0.14)', duracion: 12000 },
-      { d: 'M0 55 C 65 76, 130 76, 195 55 S 325 34, 390 55 S 520 76, 585 55 S 715 34, 780 55 V80 H0Z', color: 'rgba(14,143,163,0.12)', duracion: 18000, inversa: true },
+      { d: 'M0 45 C 65 18, 130 18, 195 45 S 325 72, 390 45 S 520 18, 585 45 S 715 72, 780 45 V80 H0Z', color: 'rgba(124,92,255,0.24)', duracion: 8000 },
+      { d: 'M0 55 C 65 76, 130 76, 195 55 S 325 34, 390 55 S 520 76, 585 55 S 715 34, 780 55 V80 H0Z', color: 'rgba(14,143,163,0.20)', duracion: 12000, inversa: true },
     ],
   },
 } as const satisfies Record<string, { alto: number; capas: readonly Capa[] }>;
