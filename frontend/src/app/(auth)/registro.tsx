@@ -58,8 +58,8 @@ export default function Registro() {
 
         <View style={{ flex: 1, paddingHorizontal: MARGEN_PANTALLA }}>
           <Aparecer style={{ paddingTop: spacing.xxl, gap: 6 }}>
-            <TituloDestacado texto="Crea tu" destacado="cuenta" />
-            <Texto variante="subtitulo">Toma menos de un minuto.</Texto>
+            <TituloDestacado texto="Crea tu" destacado="cuenta" style={{ transform: [{ translateY: -7 }] }} />
+            <Texto variante="subtitulo" style={{ transform: [{ translateY: -16 }] }}>Toma menos de un minuto.</Texto>
           </Aparecer>
 
           <Aparecer retraso={100} style={{ paddingTop: spacing.lg, gap: spacing.md }}>

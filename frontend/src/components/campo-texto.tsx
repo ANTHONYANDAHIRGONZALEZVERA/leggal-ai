@@ -3,6 +3,8 @@ import { TextInput, View, type TextInputInstance, type TextInputProps } from 're
 
 import { colors, fontFamily, radius, shadows, sizes, spacing } from '@/theme';
 
+import { Icono } from './icono';
+import { Presionable } from './presionable';
 import { Texto } from './texto';
 
 type Props = Omit<TextInputProps, 'style'> & {
@@ -23,8 +25,10 @@ const estiloEntrada = {
 
 // Campo con etiqueta arriba, como en Login y Registro. Al enfocarlo el borde
 // pasa a morado con un halo suave; con error, borde y mensaje en rojo.
-export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, ...props }: Props) {
+export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, secureTextEntry, ...props }: Props) {
   const [enfocado, setEnfocado] = useState(false);
+  // Los campos de contraseña llevan el "ojito" para mostrar u ocultar lo escrito.
+  const [visible, setVisible] = useState(false);
   const id = useId();
 
   const colorBorde = error ? colors.error : enfocado ? colors.acentoClaro : colors.borde;
@@ -46,6 +50,8 @@ export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, ...props }: 
           borderColor: colorBorde,
           backgroundColor: colors.superficie,
           boxShadow: enfocado && !error ? shadows.foco : undefined,
+          flexDirection: 'row',
+          alignItems: 'center',
         }}>
         <TextInput
           ref={ref}
@@ -63,8 +69,17 @@ export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, ...props }: 
             onBlur?.(e);
           }}
           style={estiloEntrada}
+          secureTextEntry={secureTextEntry && !visible}
           {...props}
         />
+        {secureTextEntry && (
+          <Presionable
+            accessibilityLabel={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            onPress={() => setVisible((v) => !v)}
+            style={{ width: sizes.tactilMinimo, height: sizes.tactilMinimo, alignItems: 'center', justifyContent: 'center', marginRight: spacing.xxs }}>
+            <Icono nombre={visible ? 'ojoCerrado' : 'ojo'} color={colors.textoSecundario} />
+          </Presionable>
+        )}
       </View>
       {error && (
         <Texto variante="nota" style={{ color: colors.error }} accessibilityLiveRegion="polite">

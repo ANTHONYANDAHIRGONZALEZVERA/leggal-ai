@@ -8,6 +8,12 @@ const trazos = {
   flecha: { d: 'M5 12h14M13 6l6 6-6 6', grosor: 2.2 },
   volver: { d: 'M15 6l-6 6 6 6', grosor: 2 },
   check: { d: 'M5 12l5 5L20 7', grosor: 3 },
+  // Ojo abierto (mostrar contraseña) y tachado (ocultarla).
+  ojo: { d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', grosor: 1.8 },
+  ojoCerrado: {
+    d: 'M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1.1',
+    grosor: 1.8,
+  },
   balanza: { d: 'M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0zM8 21h8', grosor: 1.8 },
 } as const;
 
