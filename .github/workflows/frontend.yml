@@ -45,5 +45,20 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      # Plantilla del día 1. En F13 se agregan lint, "tsc --noEmit" y Jest
-      # (hoy tsc falla en un archivo de la plantilla de Expo que F03 elimina).
+      # Revisiones de F13. Las ramas anteriores a F13 aún no tienen ESLint
+      # configurado ni los scripts "tipos" y "test": se saltan esos pasos en
+      # vez de fallar ("--if-present" y la condición de eslint.config.js).
+      - name: Revisar estilo y errores comunes (ESLint)
+        if: steps.cambios.outputs.frontend == 'true' && hashFiles('frontend/eslint.config.js') != ''
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Revisar tipos (TypeScript)
+        if: steps.cambios.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npm run tipos --if-present
+
+      - name: Correr pruebas (Jest)
+        if: steps.cambios.outputs.frontend == 'true'
+        working-directory: frontend
+        run: npm test --if-present -- --ci
