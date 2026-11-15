@@ -17,7 +17,7 @@
 | VS Code | 1.145.2 (x64) | Editor |
 | Expo Go (teléfono) | (versión de la tienda) | Ver la app en el teléfono mientras se desarrolla |
 | GitHub CLI | (pendiente, opcional) | Abrir PRs desde la terminal |
-| Python | 3.10 o superior (pendiente de instalar) | security-guidance (día 1) y Graphify (día 10) |
+| Python | 3.15.2 | security-guidance (día 1) y Graphify (día 10) |
 
 ## Extensiones de VS Code recomendadas
 ESLint, Prettier, Prisma, Docker y Expo Tools.
