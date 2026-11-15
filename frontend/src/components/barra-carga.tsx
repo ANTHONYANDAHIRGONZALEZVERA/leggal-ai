@@ -13,14 +13,16 @@ const recorrer: CSSAnimationKeyframes = {
   to: { transform: [{ translateX: ANCHO }] },
 };
 
-// Barra de carga indeterminada del Splash.
-export function BarraCarga() {
+// Barra de carga del Splash. Se ve vacía desde el inicio y el tramo de luz
+// solo aparece y recorre la pista mientras está activa.
+export function BarraCarga({ activa }: { activa: boolean }) {
   const reducido = useReducedMotion();
 
   return (
     <View
       accessibilityRole="progressbar"
       accessibilityLabel="Cargando"
+      accessibilityState={{ busy: activa }}
       style={{
         width: ANCHO,
         height: ALTO,
@@ -28,25 +30,27 @@ export function BarraCarga() {
         overflow: 'hidden',
         backgroundColor: colors.splash.pista,
       }}>
-      <Animated.View
-        style={[
-          {
-            width: TRAMO,
-            height: ALTO,
-            borderRadius: ALTO / 2,
-            backgroundImage: gradients.carga,
-          },
-          // Con "reducir movimiento" queda quieta al centro como indicador estático.
-          reducido
-            ? { transform: [{ translateX: (ANCHO - TRAMO) / 2 }] }
-            : {
-                animationName: recorrer,
-                animationDuration: 1600,
-                animationIterationCount: 'infinite',
-                animationTimingFunction: 'ease-in-out',
-              },
-        ]}
-      />
+      {activa && (
+        <Animated.View
+          style={[
+            {
+              width: TRAMO,
+              height: ALTO,
+              borderRadius: ALTO / 2,
+              backgroundImage: gradients.carga,
+            },
+            // Con "reducir movimiento" queda quieta al centro como indicador estático.
+            reducido
+              ? { transform: [{ translateX: (ANCHO - TRAMO) / 2 }] }
+              : {
+                  animationName: recorrer,
+                  animationDuration: 1600,
+                  animationIterationCount: 'infinite',
+                  animationTimingFunction: 'ease-in-out',
+                },
+          ]}
+        />
+      )}
     </View>
   );
 }

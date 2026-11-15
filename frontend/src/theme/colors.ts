@@ -24,8 +24,8 @@ export const colors = {
     texto: '#D3CDEE',
     acento: '#C9BEFF',
     tenue: '#ABA4CF',
-    vidrio: 'rgba(255,255,255,0.12)',
-    bordeVidrio: 'rgba(255,255,255,0.25)',
+    vidrio: 'rgba(255,255,255,0.2)',
+    bordeVidrio: 'rgba(255,255,255,0.4)',
     pista: 'rgba(255,255,255,0.18)',
   },
 } as const;

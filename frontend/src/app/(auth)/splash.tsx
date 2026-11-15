@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { Anillo } from '@/components/anillo';
 import { Aparecer } from '@/components/aparecer';
@@ -13,7 +12,7 @@ import { Logo } from '@/components/logo';
 import { Ondas } from '@/components/ondas';
 import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
 import { Texto } from '@/components/texto';
-import { colors, motion, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 
 // El diseño está hecho en un lienzo de 390×844: las medidas se escalan al
 // teléfono para que la composición se vea igual en cualquier tamaño.
@@ -77,17 +76,9 @@ export default function Splash() {
       <View style={{ flex: 1 }} />
 
       <Aparecer retraso={1000} style={{ alignItems: 'center', gap: 18, paddingBottom: spacing.xxxl }}>
-        {/* La barra solo aparece mientras carga; su espacio se reserva para que
-            el botón no salte al mostrarse. */}
-        <View style={{ height: 4 }}>
-          {cargando && (
-            <Animated.View entering={FadeIn.duration(motion.entrada)}>
-              <BarraCarga />
-            </Animated.View>
-          )}
-        </View>
+        <BarraCarga activa={cargando} />
         <Boton titulo="Comenzar" variante="vidrio" onPress={comenzar} />
-        <Texto variante="nota" style={{ color: colors.splash.tenue }}>
+        <Texto variante="nota" style={{ color: colors.splash.texto }}>
           por ACCONS
         </Texto>
       </Aparecer>

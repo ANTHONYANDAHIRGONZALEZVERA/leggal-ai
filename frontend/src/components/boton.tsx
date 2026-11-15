@@ -1,6 +1,6 @@
 import { ActivityIndicator, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, gradients, radius, sizes, spacing, type } from '@/theme';
+import { colors, gradients, radius, shadows, sizes, spacing, type } from '@/theme';
 
 import { Icono, type NombreIcono } from './icono';
 import { Presionable } from './presionable';
@@ -42,6 +42,7 @@ const variantes = {
       backgroundColor: colors.splash.vidrio,
       borderWidth: 1,
       borderColor: colors.splash.bordeVidrio,
+      boxShadow: shadows.flotante,
     },
     texto: colors.sobreOscuro,
     tipo: 'botonPequeno',

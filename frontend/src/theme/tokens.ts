@@ -38,6 +38,8 @@ export const shadows = {
   tarjeta: '0px 10px 26px -20px rgba(60, 40, 140, 0.6)',
   foco: '0px 0px 0px 4px rgba(124, 92, 255, 0.15)',
   seleccion: '0px 0px 0px 4px rgba(91, 61, 245, 0.14)',
+  // Separa el botón de vidrio de las ondas del Splash para que no se vea hundido.
+  flotante: '0px 8px 24px rgba(10, 6, 40, 0.5)',
 } as const;
 
 export const motion = {
