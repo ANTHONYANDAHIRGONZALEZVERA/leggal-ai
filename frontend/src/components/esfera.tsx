@@ -43,14 +43,14 @@ const K = 0.5523;
 const IRIS = ['#5fe3f2', '#8b7bff', '#f4a3e6', '#5fe3f2'];
 
 const paletas = {
-  // Pantallas claras (login, registro, onboarding).
+  // Pantallas claras (login, registro, onboarding): reflejo más suave, como en el diseño.
   claro: {
     colores: ['#ffffff', '#f3f0fb', '#b9b3d3', '#fcfbff', '#8a83b2', '#e7e3f4'],
     posiciones: [0, 0.2, 0.4, 0.55, 0.73, 0.92],
     sombra: 'rgba(64,52,128,0.38)',
     brillo: 'rgba(255,255,255,0.95)',
     halo: 'rgba(60,40,150,0.35)',
-    iris: 0.75,
+    iris: 0.5,
   },
   // Splash sobre fondo oscuro: más contraste y halo morado.
   oscuro: {

@@ -49,7 +49,7 @@ export default function IniciarSesion() {
             se desvanecen hacia el fondo. Se desplaza junto con el formulario. */}
         <View style={{ height: ALTO_ESCENA, overflow: 'hidden' }}>
           <Anillo ancho={200} alto={130} style={{ position: 'absolute', left: -50, top: 70 }} />
-          <Esfera ancho={230} alto={170} ciclo={13000} flotar style={{ position: 'absolute', right: -10, top: 24 }} />
+          <Esfera ancho={200} alto={150} ciclo={13000} flotar style={{ position: 'absolute', right: 20, top: 36 }} />
           <Ondas juego="acceso" style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }} />
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 80, backgroundImage: gradients.desvanecer }} />
         </View>
