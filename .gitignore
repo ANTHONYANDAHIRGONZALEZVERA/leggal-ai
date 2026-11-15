@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Claude Code: archivos locales de cada persona
+.claude/*.local.md
+.claude/settings.local.json
