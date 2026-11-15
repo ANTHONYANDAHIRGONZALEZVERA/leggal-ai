@@ -13,8 +13,9 @@ import {
 } from '@shopify/react-native-skia';
 import { useEffect } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
-import {
+import Animated, {
   cancelAnimation,
+  type CSSAnimationKeyframes,
   Easing,
   useDerivedValue,
   useReducedMotion,
@@ -60,12 +61,30 @@ const paletas = {
   },
 } as const;
 
+// @keyframes "intro" del Splash: la esfera aparece creciendo y enderezándose.
+const intro: CSSAnimationKeyframes = {
+  from: { opacity: 0, transform: [{ scale: 0.6 }, { rotate: '-30deg' }] },
+  to: { opacity: 1, transform: [{ scale: 1 }, { rotate: '0deg' }] },
+};
+
+// @keyframes "drift": vaivén lento, como si flotara.
+const flotacion: CSSAnimationKeyframes = {
+  '0%': { transform: [{ translateX: 0 }, { translateY: 0 }, { rotate: '0deg' }] },
+  '50%': { transform: [{ translateX: -12 }, { translateY: 10 }, { rotate: '8deg' }] },
+  '100%': { transform: [{ translateX: 0 }, { translateY: 0 }, { rotate: '0deg' }] },
+};
+
 type Props = {
   ancho: number;
   alto: number;
   tono?: keyof typeof paletas;
   /** Duración de un ciclo completo de deformación, en ms (el diseño usa 8–13 s). */
   ciclo?: number;
+  /** Aparece creciendo al montar la pantalla (solo la esfera principal del Splash). */
+  entrada?: boolean;
+  /** Se desplaza suavemente en bucle. */
+  flotar?: boolean;
+  /** Posición dentro de la pantalla (normalmente absoluta). */
   style?: StyleProp<ViewStyle>;
 };
 
@@ -85,7 +104,7 @@ function trazarForma(p: SkPathBuilder, r: readonly number[], x: number, y: numbe
   p.close();
 }
 
-export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, style }: Props) {
+export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, entrada, flotar, style }: Props) {
   const reducido = useReducedMotion();
   const paleta = paletas[tono];
 
@@ -124,40 +143,66 @@ export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, style 
   const centroIris = vec(m + w * 0.28 + (w * 0.58) / 2, m + h * 0.12 + (h * 0.6) / 2);
   const giroIris = useDerivedValue(() => [{ rotate: giro.get() }]);
 
+  // Dos capas: la de fuera hace la entrada y la de dentro flota, para que
+  // sus transformaciones no se pisen entre sí.
   return (
-    <Canvas
+    <Animated.View
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ width: w + m * 2, height: h + m * 2, margin: -m }, style]}>
-      {/* Halo exterior bajo la esfera. */}
-      <Path path={forma} color="transparent">
-        <Shadow dx={0} dy={34 * s} blur={30 * s} color={paleta.halo} shadowOnly />
-      </Path>
+      style={[
+        { width: w, height: h },
+        style,
+        entrada &&
+          !reducido && {
+            animationName: intro,
+            animationDuration: 1400,
+            animationFillMode: 'both',
+            animationTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+          },
+      ]}>
+      <Animated.View
+        style={
+          flotar &&
+          !reducido && {
+            animationName: flotacion,
+            animationDuration: 8000,
+            animationIterationCount: 'infinite',
+            animationTimingFunction: 'ease-in-out',
+          }
+        }>
+        <Canvas style={{ width: w + m * 2, height: h + m * 2, margin: -m }}>
+          {/* Halo exterior bajo la esfera. */}
+          <Path path={forma} color="transparent">
+            <Shadow dx={0} dy={34 * s} blur={30 * s} color={paleta.halo} shadowOnly />
+          </Path>
 
-      {/* Cuerpo cromado con luz arriba a la izquierda y volumen por sombras internas. */}
-      <Path path={forma}>
-        <RadialGradient
-          c={vec(m + w * 0.3, m + h * 0.22)}
-          r={w * 1.2}
-          colors={[...paleta.colores]}
-          positions={[...paleta.posiciones]}
-          transform={[{ scaleY: (h * 0.9) / (w * 1.2) }]}
-          origin={vec(m + w * 0.3, m + h * 0.22)}
-        />
-        <Shadow dx={-26 * s} dy={-30 * s} blur={25 * s} color={paleta.sombra} inner />
-        <Shadow dx={22 * s} dy={18 * s} blur={15 * s} color={paleta.brillo} inner />
-      </Path>
+          {/* Cuerpo cromado con luz arriba a la izquierda y volumen por sombras internas. */}
+          <Path path={forma}>
+            <RadialGradient
+              c={vec(m + w * 0.3, m + h * 0.22)}
+              r={w * 1.2}
+              colors={[...paleta.colores]}
+              positions={[...paleta.posiciones]}
+              transform={[{ scaleY: (h * 0.9) / (w * 1.2) }]}
+              origin={vec(m + w * 0.3, m + h * 0.22)}
+            />
+            <Shadow dx={-26 * s} dy={-30 * s} blur={25 * s} color={paleta.sombra} inner />
+            <Shadow dx={22 * s} dy={18 * s} blur={15 * s} color={paleta.brillo} inner />
+          </Path>
 
-      {/* Reflejo tornasol: degradado cónico desenfocado que gira y tiñe la esfera. */}
-      <Group clip={forma} blendMode="color" opacity={paleta.iris}>
-        <Group transform={giroIris} origin={centroIris}>
-          <Oval x={m + w * 0.28} y={m + h * 0.12} width={w * 0.58} height={h * 0.6}>
-            <SweepGradient c={centroIris} colors={IRIS} />
-            <Blur blur={9 * s} />
-          </Oval>
-        </Group>
-      </Group>
-    </Canvas>
+          {/* Reflejo tornasol: degradado cónico desenfocado que gira y tiñe la esfera. */}
+          <Group clip={forma} blendMode="color" opacity={paleta.iris}>
+            <Group transform={giroIris} origin={centroIris}>
+              <Oval x={m + w * 0.28} y={m + h * 0.12} width={w * 0.58} height={h * 0.6}>
+                <SweepGradient c={centroIris} colors={IRIS} />
+                <Blur blur={9 * s} />
+              </Oval>
+            </Group>
+          </Group>
+        </Canvas>
+      </Animated.View>
+    </Animated.View>
   );
 }
+
