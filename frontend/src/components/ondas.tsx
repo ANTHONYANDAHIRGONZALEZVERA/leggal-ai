@@ -26,6 +26,13 @@ const juegos = {
       { d: 'M0 55 C 65 76, 130 76, 195 55 S 325 34, 390 55 S 520 76, 585 55 S 715 34, 780 55 V80 H0Z', color: 'rgba(14,143,163,0.20)', duracion: 12000, inversa: true },
     ],
   },
+  // Registro: una sola onda tenue detrás del título.
+  registro: {
+    alto: 70,
+    capas: [
+      { d: 'M0 40 C 65 15, 130 15, 195 40 S 325 65, 390 40 S 520 15, 585 40 S 715 65, 780 40 V70 H0Z', color: 'rgba(124,92,255,0.14)', duracion: 12000 },
+    ],
+  },
 } as const satisfies Record<string, { alto: number; capas: readonly Capa[] }>;
 
 type Props = {
