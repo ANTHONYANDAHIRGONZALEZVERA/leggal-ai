@@ -52,7 +52,7 @@ describe('Pantalla de Registro', () => {
     expect(screen.getByText('Ingresa un correo válido')).toBeOnTheScreen();
     expect(screen.getByText('Mínimo 8 caracteres')).toBeOnTheScreen();
     expect(screen.getByText('Debes aceptar los Términos y la Política para continuar')).toBeOnTheScreen();
-    expect(router.replace).not.toHaveBeenCalled();
+    expect(useSesion.getState().usuario).toBeNull();
   });
 
   test('la casilla de Términos empieza sin marcar', async () => {
@@ -70,7 +70,7 @@ describe('Pantalla de Registro', () => {
 
     expect(await screen.findByText('Debes aceptar los Términos y la Política para continuar')).toBeOnTheScreen();
     expect(screen.queryByText('Ingresa un correo válido')).not.toBeOnTheScreen();
-    expect(router.replace).not.toHaveBeenCalled();
+    expect(useSesion.getState().usuario).toBeNull();
   });
 
   test('el medidor reacciona a la contraseña escrita', async () => {
@@ -82,15 +82,21 @@ describe('Pantalla de Registro', () => {
     expect(screen.getByText('Fuerte')).toBeOnTheScreen();
   });
 
-  test('con todo correcto crea la cuenta, guarda la sesión y pasa al onboarding', async () => {
+  test('con todo correcto crea la cuenta y guarda la sesión con el onboarding pendiente', async () => {
     const user = userEvent.setup();
     await renderizar(<Registro />);
 
     await llenar(user);
     await user.press(screen.getByLabelText('Crear cuenta'));
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/perfil'));
-    expect(useSesion.getState().usuario).toMatchObject({ nombre: 'Ana Pérez', correo: 'ana@empresa.com' });
+    // Con onboarding pendiente, la navegación lleva al paso 1/5 (ver navegacion-test).
+    await waitFor(() =>
+      expect(useSesion.getState().usuario).toMatchObject({
+        nombre: 'Ana Pérez',
+        correo: 'ana@empresa.com',
+        onboardingCompleto: false,
+      }),
+    );
   });
 
   test('si el correo ya tiene cuenta lo avisa debajo del campo y no avanza', async () => {
@@ -103,7 +109,6 @@ describe('Pantalla de Registro', () => {
     expect(await screen.findByText('Ya existe una cuenta con este correo')).toBeOnTheScreen();
     // Es un error del campo, no un aviso general.
     expect(screen.queryByRole('alert')).not.toBeOnTheScreen();
-    expect(router.replace).not.toHaveBeenCalled();
     expect(useSesion.getState().usuario).toBeNull();
   });
 

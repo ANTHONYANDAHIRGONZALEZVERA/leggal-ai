@@ -1,5 +1,4 @@
 import { screen, userEvent, waitFor } from '@testing-library/react-native';
-import { router } from 'expo-router';
 
 import IniciarSesion from '@/app/(auth)/iniciar-sesion';
 import { renderizar } from '@/pruebas/renderizar';
@@ -16,11 +15,11 @@ jest.mock('@/components/anillo', () => ({ Anillo: () => null }));
 // Márgenes seguros del teléfono (notch, barra inferior) con valores de prueba.
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 
-// Solo se comprueba a dónde intenta ir la pantalla.
+// El Link necesita el árbol de rutas; aquí basta un texto con su destino. La
+// navegación al entrar la prueba navegacion-test con el enrutador real.
 jest.mock('expo-router', () => {
   const { Text } = require('react-native');
   return {
-    router: { replace: jest.fn() },
     Link: ({ children, ...props }: { children: React.ReactNode }) => <Text {...props}>{children}</Text>,
   };
 });
@@ -49,17 +48,18 @@ describe('Pantalla de Inicio de sesión', () => {
 
     expect(await screen.findByText('Ingresa un correo válido')).toBeOnTheScreen();
     expect(screen.getByText('Ingresa tu contraseña')).toBeOnTheScreen();
-    expect(router.replace).not.toHaveBeenCalled();
+    expect(useSesion.getState().usuario).toBeNull();
   });
 
-  test('con la cuenta correcta guarda la sesión y entra a Inicio', async () => {
+  test('con la cuenta correcta guarda la sesión (y con ella la app pasa a Inicio)', async () => {
     await renderizar(<IniciarSesion />);
 
     // Con espacios y mayúsculas, como lo deja a veces el teclado.
     await escribir(' Demo@Leggal.ai ', USUARIO_DEMO.contrasena);
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inicio'));
-    expect(useSesion.getState().usuario).toMatchObject({ correo: 'demo@leggal.ai', nombre: 'Usuario Demo' });
+    await waitFor(() =>
+      expect(useSesion.getState().usuario).toMatchObject({ correo: 'demo@leggal.ai', onboardingCompleto: true }),
+    );
     expect(useSesion.getState().tokens).not.toBeNull();
   });
 
@@ -69,7 +69,6 @@ describe('Pantalla de Inicio de sesión', () => {
     await escribir(USUARIO_DEMO.correo, 'incorrecta');
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Correo o contraseña incorrectos.');
-    expect(router.replace).not.toHaveBeenCalled();
     expect(useSesion.getState().usuario).toBeNull();
   });
 
@@ -83,7 +82,7 @@ describe('Pantalla de Inicio de sesión', () => {
     await user.type(screen.getByLabelText('Contraseña'), USUARIO_DEMO.contrasena);
     await user.press(screen.getByLabelText('Iniciar sesión'));
 
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith('/inicio'));
+    await waitFor(() => expect(useSesion.getState().usuario).not.toBeNull());
     expect(screen.queryByRole('alert')).not.toBeOnTheScreen();
   });
 

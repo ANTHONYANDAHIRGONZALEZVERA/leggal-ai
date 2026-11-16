@@ -38,7 +38,6 @@ export default function IniciarSesion() {
 
   const { enviar, errorGeneral } = useEnvioSesion({
     peticion: iniciarSesion,
-    destino: '/inicio',
     setError,
     campos: ['correo', 'contrasena'],
   });

@@ -1,4 +1,5 @@
-import { reiniciarMock, transporteSimulado, USUARIO_DEMO } from '../mock';
+import { leerVencimiento } from '../jwt';
+import { reiniciarMock, transporteSimulado, USUARIO_DEMO, VIDA_TOKEN_MS } from '../mock';
 
 // API simulada (F11). Debe responder como el backend para que lo probado con
 // ella siga valiendo cuando se conecte el servidor real.
@@ -21,10 +22,25 @@ describe('API simulada: inicio de sesión', () => {
     const r = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
 
     expect(r.estado).toBe(200);
-    expect(r.datos.usuario).toEqual({ id: 'usr-demo', nombre: 'Usuario Demo', correo: 'demo@leggal.ai' });
+    expect(r.datos.usuario).toEqual({
+      id: 'usr-demo',
+      nombre: 'Usuario Demo',
+      correo: 'demo@leggal.ai',
+      onboardingCompleto: true,
+    });
     expect(r.datos.tokens).toEqual({ acceso: expect.any(String), renovacion: expect.any(String) });
     // Nunca devuelve la contraseña.
     expect(JSON.stringify(r.datos)).not.toContain(USUARIO_DEMO.contrasena);
+  });
+
+  test('el token de acceso es un JWT con vencimiento, como los del backend', async () => {
+    const antes = Date.now();
+    const r = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+
+    const vence = leerVencimiento(r.datos.tokens.acceso);
+    // "exp" va en segundos: se tolera el redondeo de hasta 1 s.
+    expect(vence).toBeGreaterThan(antes + VIDA_TOKEN_MS - 1000);
+    expect(vence).toBeLessThanOrEqual(Date.now() + VIDA_TOKEN_MS);
   });
 
   test('con contraseña incorrecta responde 401 "credenciales inválidas"', async () => {
@@ -45,7 +61,8 @@ describe('API simulada: registro', () => {
   test('crea la cuenta (201) y después se puede iniciar sesión con ella', async () => {
     const registro = await post('/auth/registro', { nombre: 'Ana Pérez', correo: 'ana@empresa.com', contrasena: 'Leggal2026!' });
     expect(registro.estado).toBe(201);
-    expect(registro.datos.usuario).toMatchObject({ nombre: 'Ana Pérez', correo: 'ana@empresa.com' });
+    // Una cuenta nueva empieza sin onboarding: la app la lleva al paso 1/5.
+    expect(registro.datos.usuario).toMatchObject({ nombre: 'Ana Pérez', correo: 'ana@empresa.com', onboardingCompleto: false });
 
     const login = await post('/auth/login', { correo: 'ana@empresa.com', contrasena: 'Leggal2026!' });
     expect(login.estado).toBe(200);
@@ -86,6 +103,18 @@ describe('API simulada: renovación', () => {
     const repetido = await post('/auth/renovar', { renovacion: datos.tokens.renovacion });
 
     expect(repetido).toMatchObject({ estado: 401, datos: { codigo: 'SESION_EXPIRADA' } });
+  });
+});
+
+describe('API simulada: cerrar sesión', () => {
+  test('responde 204 y el token de renovación deja de servir', async () => {
+    const { datos } = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+
+    const salir = await post('/auth/salir', { renovacion: datos.tokens.renovacion });
+    expect(salir.estado).toBe(204);
+
+    const renovar = await post('/auth/renovar', { renovacion: datos.tokens.renovacion });
+    expect(renovar.estado).toBe(401);
   });
 });
 

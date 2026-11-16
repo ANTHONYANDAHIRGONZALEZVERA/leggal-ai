@@ -1,6 +1,6 @@
 import { api } from '@/services/api';
 import type { Tokens } from '@/services/api/cliente';
-import type { Usuario } from '@/services/sesion';
+import { useSesion, type Usuario } from '@/services/sesion';
 
 import type { DatosInicioSesion, DatosRegistro } from './esquemas';
 
@@ -15,4 +15,22 @@ export function iniciarSesion(datos: DatosInicioSesion) {
 
 export function registrarse(datos: DatosRegistro) {
   return api.peticion<RespuestaSesion>('/auth/registro', { metodo: 'POST', cuerpo: datos, publica: true });
+}
+
+/**
+ * Cierra la sesión en el teléfono y avisa al servidor para que invalide el
+ * token de renovación. Si el aviso falla (sin red), la sesión local se cierra
+ * igual: la persona pidió salir y no debe quedar dentro.
+ */
+export async function cerrarSesion() {
+  const { tokens, cerrar } = useSesion.getState();
+  try {
+    if (tokens) {
+      await api.peticion('/auth/salir', { metodo: 'POST', cuerpo: { renovacion: tokens.renovacion }, publica: true });
+    }
+  } catch {
+    // Ver arriba: el cierre local no depende del servidor.
+  } finally {
+    cerrar();
+  }
 }
