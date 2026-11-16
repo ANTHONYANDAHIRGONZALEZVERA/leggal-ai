@@ -33,7 +33,7 @@ jobs:
         if: steps.cambios.outputs.frontend != 'true'
         run: echo "No hay cambios en frontend/; el check pasa sin correr pasos."
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.cambios.outputs.frontend == 'true'
         with:
           node-version-file: .nvmrc
