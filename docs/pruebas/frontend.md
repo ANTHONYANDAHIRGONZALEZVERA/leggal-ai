@@ -40,7 +40,7 @@ GitHub corre los tres (lint, tipos y pruebas) en cada PR con el workflow
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (130)
+## Pruebas actuales (133)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -130,6 +130,14 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Cerrar sesión | Vuelve al Splash |
 | Enlace directo sin sesión | `/inicio` no deja entrar |
 | Login con sesión | El Login ya no está disponible |
+
+### Acceso rápido de desarrollo: `src/features/auth/__tests__/acceso-rapido-dev-test.tsx` (3)
+Botones del Login que solo existen en desarrollo con la API simulada.
+| Prueba | Qué asegura |
+|---|---|
+| Visible | Aparece con `__DEV__` y la API simulada |
+| Demo · Inicio | Entra con `demo@leggal.ai` (onboarding hecho) |
+| Cuenta nueva · Onboarding | Entra con `nuevo@leggal.ai` (onboarding pendiente, "Andrea Ruiz") |
 
 ### Cerrar sesión: `src/features/auth/__tests__/cerrar-sesion-test.ts` (3)
 `cerrarSesion` (F10).

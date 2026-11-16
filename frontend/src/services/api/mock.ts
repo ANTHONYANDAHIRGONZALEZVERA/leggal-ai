@@ -13,6 +13,13 @@ type Cuerpo = Record<string, string>;
 /** Cuenta lista para probar sin registrarse (ya hizo el onboarding). */
 export const USUARIO_DEMO = { nombre: 'Usuario Demo', correo: 'demo@leggal.ai', contrasena: 'Leggal2026!' } as const;
 
+/**
+ * Cuenta para revisar el onboarding sin registrarse: cada vez que entra, lo
+ * tiene pendiente. Se llama como en el diseño ("Andrea Ruiz") para ver el caso
+ * de @usuario tomado.
+ */
+export const USUARIO_NUEVO = { nombre: 'Andrea Ruiz', correo: 'nuevo@leggal.ai', contrasena: 'Leggal2026!' } as const;
+
 // Pausa que imita la red real, para ver los estados de carga. En Jest es 0.
 const LATENCIA_MS = process.env.NODE_ENV === 'test' ? 0 : 600;
 
@@ -28,9 +35,12 @@ let contador = 0;
 const USUARIOS_TOMADOS = ['admin', 'soporte', 'leggal', 'accons', 'usuario.demo', 'andrea.ruiz'];
 let usuariosTomados = new Set<string>();
 
-/** Vuelve al estado inicial (solo el usuario demo). Lo usan las pruebas. */
+/** Vuelve al estado inicial (solo las cuentas de prueba). Lo usan las pruebas. */
 export function reiniciarMock() {
-  usuarios = new Map([[USUARIO_DEMO.correo, { id: 'usr-demo', ...USUARIO_DEMO, onboardingCompleto: true }]]);
+  usuarios = new Map([
+    [USUARIO_DEMO.correo, { id: 'usr-demo', ...USUARIO_DEMO, onboardingCompleto: true }],
+    [USUARIO_NUEVO.correo, { id: 'usr-nuevo', ...USUARIO_NUEVO, onboardingCompleto: false }],
+  ]);
   renovaciones = new Map();
   contador = 0;
   usuariosTomados = new Set(USUARIOS_TOMADOS);

@@ -90,7 +90,9 @@ Los dos tienen healthcheck (`pg_isready` y `redis-cli ping`). Con
 6. En backend/ y frontend/: `npm ci`.
 7. Copiar `.env.example` a `.env` y completar los valores. En `frontend/` es
    opcional y se llama `.env.local`: sin él la app usa la API simulada
-   (cuenta de prueba `demo@leggal.ai` / `Leggal2026!`).
+   (cuentas de prueba, contraseña `Leggal2026!`: `demo@leggal.ai` entra a
+   Inicio y `nuevo@leggal.ai` siempre entra al onboarding). En desarrollo, el
+   Login muestra dos botones para entrar con ellas sin escribir.
 8. En backend/: `docker compose up -d` y esperar a que `docker compose ps`
    muestre los dos servicios como `healthy`.
 9. En backend/: `npx prisma generate` y luego `npm run start:dev`.
