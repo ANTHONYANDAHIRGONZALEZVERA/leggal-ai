@@ -1,47 +1,61 @@
-# Dependabot revisa cada lunes si hay versiones nuevas y abre PR agrupadas,
-# para no llenar el repositorio de PR sueltas. Las actualizaciones de
-# seguridad llegan aparte, apenas se publican.
+# Dependabot revisa una vez al mes si hay versiones nuevas y abre como máximo
+# UNA PR por carpeta, con todo agrupado. No propone versiones mayores (por
+# ejemplo TypeScript 6 → 7): esas rompen cosas y se suben a mano, con una tarea
+# propia y probando la app. Las alertas de seguridad llegan aparte, apenas se
+# publican (Settings → Code security), sin esperar al mes.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /backend
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 1
     commit-message:
       prefix: build
       include: scope
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
-      backend-menores:
-        update-types: [minor, patch]
+      backend:
+        patterns: ["*"]
 
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 1
     commit-message:
       prefix: build
       include: scope
-    # Las versiones de Expo van amarradas al SDK: se suben con
-    # "npx expo install --fix", no una por una.
     ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # Las versiones de Expo van amarradas al SDK: se suben con
+      # "npx expo install --fix", no una por una.
       - dependency-name: "expo"
       - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
       - dependency-name: "react"
       - dependency-name: "react-dom"
       - dependency-name: "react-native"
       - dependency-name: "react-native-*"
+      - dependency-name: "@shopify/react-native-skia"
+      - dependency-name: "typescript"
     groups:
-      frontend-menores:
-        update-types: [minor, patch]
+      frontend:
+        patterns: ["*"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
+    open-pull-requests-limit: 1
     commit-message:
       prefix: ci
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      acciones:
+        patterns: ["*"]
