@@ -47,6 +47,17 @@ Cuerpo: `{ "renovacion": "<token de renovación>" }`.
 - **204**: el token de renovación deja de servir. Si falla (sin red), la app
   cierra la sesión local igual.
 
+### `GET /usuarios/disponible?usuario=<texto>` (privada, F30)
+Revisa si un @usuario está libre. La app solo consulta textos con formato
+válido (3 a 30 caracteres; letras minúsculas, números, punto y guion bajo;
+empieza con letra) y espera 400 ms después de la última tecla.
+- **200** → `{ "usuario": "andrea.ruiz", "disponible": false, "sugerencias": ["ab.andrearuiz", "aruiz.legal", "andrearuiz"] }`
+  - `sugerencias`: hasta 3 @usuarios **libres** armados con el nombre de la
+    persona. No dependen de lo que se está escribiendo, para que la lista no
+    cambie mientras elige.
+- La app vuelve a consultar al tocar Continuar; el envío definitivo del
+  onboarding (con el @usuario) es al final del paso 5/5 (F31).
+
 ## Cómo reacciona la app
 - Antes de cada petición privada, si al token de acceso le quedan menos de 60 s
   (según su `exp`), la app lo renueva primero.

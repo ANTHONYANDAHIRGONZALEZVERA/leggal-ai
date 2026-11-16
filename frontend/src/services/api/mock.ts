@@ -1,4 +1,7 @@
+import { quitarAcentos } from '@/utils/texto';
+
 import type { RespuestaTransporte, Transporte } from './cliente';
+import { leerCarga, leerVencimiento } from './jwt';
 
 // API simulada (F11): responde dentro de la app como lo hará el backend, para
 // avanzar sin servidor. Se activa con EXPO_PUBLIC_API_MOCK=true o cuando no hay
@@ -21,11 +24,16 @@ let usuarios = new Map<string, UsuarioSimulado>();
 let renovaciones = new Map<string, string>();
 let contador = 0;
 
+// @usuarios ya tomados por otras personas (además de los reservados del sistema).
+const USUARIOS_TOMADOS = ['admin', 'soporte', 'leggal', 'accons', 'usuario.demo', 'andrea.ruiz'];
+let usuariosTomados = new Set<string>();
+
 /** Vuelve al estado inicial (solo el usuario demo). Lo usan las pruebas. */
 export function reiniciarMock() {
   usuarios = new Map([[USUARIO_DEMO.correo, { id: 'usr-demo', ...USUARIO_DEMO, onboardingCompleto: true }]]);
   renovaciones = new Map();
   contador = 0;
+  usuariosTomados = new Set(USUARIOS_TOMADOS);
 }
 reiniciarMock();
 
@@ -57,7 +65,42 @@ function sesionDe({ id, nombre, correo, onboardingCompleto }: UsuarioSimulado) {
   return { usuario: { id, nombre, correo, onboardingCompleto }, tokens: emitirTokens(correo) };
 }
 
-const rutas: Record<string, (cuerpo: Cuerpo) => RespuestaTransporte> = {
+/** Dueño del token de acceso, o null si falta, no es válido o ya venció. */
+function duenoDelToken(cabeceras: Record<string, string>) {
+  const token = cabeceras.Authorization?.replace(/^Bearer /, '') ?? '';
+  const correo = leerCarga(token)?.sub;
+  const vence = leerVencimiento(token);
+  if (typeof correo !== 'string' || vence === null || vence < Date.now()) return null;
+  return usuarios.get(correo) ?? null;
+}
+
+/** Hasta 3 @usuarios libres armados con el nombre: "Andrea Ruiz" → ab.andrearuiz, aruiz.legal… */
+function sugerenciasPara(nombre: string) {
+  const [n = 'usuario', ...resto] = quitarAcentos(nombre)
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+  const a = resto[resto.length - 1] ?? 'legal';
+  const candidatos = [`${n}.${a}`, `${n[0]}b.${n}${a}`, `${n[0]}${a}.legal`, `${n}${a}`, `${n}.${a}.abogado`, `${n}.${a}1`];
+  // No depende de lo que se está escribiendo: la lista queda quieta mientras se elige.
+  return candidatos.filter((c) => !usuariosTomados.has(c)).slice(0, 3);
+}
+
+type Manejador = (cuerpo: Cuerpo) => RespuestaTransporte;
+/** Las rutas privadas reciben además a la persona dueña del token. */
+type ManejadorPrivado = (cuerpo: Cuerpo, persona: UsuarioSimulado) => RespuestaTransporte;
+
+const rutasPrivadas: Record<string, ManejadorPrivado> = {
+  'GET /usuarios/disponible': ({ usuario }, persona) =>
+    responder(200, {
+      usuario,
+      disponible: !usuariosTomados.has(usuario),
+      sugerencias: sugerenciasPara(persona.nombre),
+    }),
+};
+
+const rutas: Record<string, Manejador> = {
   'POST /auth/login': ({ correo, contrasena }) => {
     const usuario = usuarios.get(correo);
     // Mismo error si el correo no existe o la contraseña falla: así no se
@@ -97,13 +140,33 @@ const rutas: Record<string, (cuerpo: Cuerpo) => RespuestaTransporte> = {
   },
 };
 
-export const transporteSimulado: Transporte = async (url, { method, body }) => {
+export const transporteSimulado: Transporte = async (url, { method, headers, body }) => {
   await new Promise((resolver) => setTimeout(resolver, LATENCIA_MS));
-  // Solo importa la ruta: se quita el dominio (si lo hay) y la consulta.
-  const ruta = url.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
-  const manejar = rutas[`${method} ${ruta}`];
-  if (!manejar) {
-    return responder(404, { codigo: 'NO_ENCONTRADO', mensaje: `La API simulada no tiene ${method} ${ruta}.` });
+  // Se quita el dominio (si lo hay); la consulta (?a=1) se suma al cuerpo.
+  const [ruta, consulta = ''] = url.replace(/^https?:\/\/[^/]+/, '').split('?');
+  const cuerpo: Cuerpo = { ...leerConsulta(consulta), ...(body ? (JSON.parse(body) as Cuerpo) : {}) };
+  const clave = `${method} ${ruta}`;
+
+  const privada = rutasPrivadas[clave];
+  if (privada) {
+    const persona = duenoDelToken(headers);
+    if (!persona) return responder(401, { codigo: 'TOKEN_INVALIDO', mensaje: 'Inicia sesión de nuevo.' });
+    return privada(cuerpo, persona);
   }
-  return manejar(body ? (JSON.parse(body) as Cuerpo) : {});
+
+  const manejar = rutas[clave];
+  if (!manejar) {
+    return responder(404, { codigo: 'NO_ENCONTRADO', mensaje: `La API simulada no tiene ${clave}.` });
+  }
+  return manejar(cuerpo);
 };
+
+/** "usuario=ana.ruiz&x=1" → { usuario: 'ana.ruiz', x: '1' }. */
+function leerConsulta(consulta: string): Cuerpo {
+  return Object.fromEntries(
+    consulta
+      .split('&')
+      .filter(Boolean)
+      .map((par) => par.split('=').map((parte) => decodeURIComponent(parte.replace(/\+/g, ' ')))),
+  );
+}

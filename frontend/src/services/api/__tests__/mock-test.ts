@@ -123,3 +123,46 @@ test('una ruta que la API simulada no conoce responde 404 explicando cuál falta
 
   expect(r).toMatchObject({ estado: 404, datos: { codigo: 'NO_ENCONTRADO', mensaje: expect.stringContaining('POST /casos') } });
 });
+
+describe('API simulada: disponibilidad del @usuario (F30)', () => {
+  /** Inicia sesión con la cuenta demo y devuelve su token de acceso. */
+  async function tokenDemo() {
+    const { datos } = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+    return datos.tokens.acceso as string;
+  }
+
+  async function consultar(usuario: string, token?: string) {
+    const r = await transporteSimulado(`/usuarios/disponible?usuario=${encodeURIComponent(usuario)}`, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    return { estado: r.status, datos: JSON.parse(await r.text()) };
+  }
+
+  test('es una ruta privada: sin token responde 401', async () => {
+    expect((await consultar('ana.perez')).estado).toBe(401);
+  });
+
+  test('con un token que no es válido también responde 401', async () => {
+    expect((await consultar('ana.perez', 'token-inventado')).estado).toBe(401);
+  });
+
+  test('un @usuario libre responde disponible', async () => {
+    const r = await consultar('usuario.nuevo', await tokenDemo());
+
+    expect(r).toMatchObject({ estado: 200, datos: { usuario: 'usuario.nuevo', disponible: true } });
+  });
+
+  test('un @usuario tomado responde no disponible', async () => {
+    const r = await consultar('andrea.ruiz', await tokenDemo());
+
+    expect(r.datos.disponible).toBe(false);
+  });
+
+  test('sugiere hasta 3 @usuarios libres a partir del nombre de quien pregunta', async () => {
+    // "Usuario Demo" → usuario.demo está tomado, así que no se sugiere.
+    const r = await consultar('x', await tokenDemo());
+
+    expect(r.datos.sugerencias).toEqual(['ub.usuariodemo', 'udemo.legal', 'usuariodemo']);
+  });
+});
