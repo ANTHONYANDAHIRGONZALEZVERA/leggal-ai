@@ -1,0 +1,33 @@
+name: seguridad
+
+# npm audit en las dos carpetas, cada lunes y en cada PR.
+# Se usa pull_request y nunca pull_request_target: este último expone
+# los secretos del repositorio a código de personas externas.
+on:
+  pull_request:
+  schedule:
+    - cron: "0 13 * * 1" # lunes 08:00 en Ecuador
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auditoria:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        carpeta: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # Solo vulnerabilidades altas o críticas de dependencias de producción.
+      # No es check obligatorio todavía: primero vemos cuánto ruido genera.
+      - name: npm audit
+        working-directory: ${{ matrix.carpeta }}
+        run: npm audit --omit=dev --audit-level=high
