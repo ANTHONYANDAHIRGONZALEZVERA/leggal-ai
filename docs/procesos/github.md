@@ -24,6 +24,10 @@ funcionan con el plan gratuito y GitHub Actions no descuenta minutos.
    branches*.
 5. **Code security**: activar Dependabot alerts, Dependabot security updates,
    Secret scanning y Push protection.
+   - Las actualizaciones de versión (`.github/dependabot.yml`) son **mensuales**,
+     **una PR por carpeta** (backend, frontend, GitHub Actions) y **sin versiones
+     mayores**. Las versiones mayores, y en el frontend lo amarrado al SDK de
+     Expo y TypeScript, se suben a mano con una tarea propia.
 6. **Actions**: Settings → Actions → General → Fork pull request workflows from
    outside collaborators → *Require approval for all external contributors*.
    Workflow permissions → *Read repository contents*.
