@@ -24,8 +24,9 @@ export const colors = {
     texto: '#D3CDEE',
     acento: '#C9BEFF',
     tenue: '#ABA4CF',
-    vidrio: 'rgba(255,255,255,0.12)',
-    bordeVidrio: 'rgba(255,255,255,0.25)',
+    vidrio: 'rgba(255,255,255,0.2)',
+    bordeVidrio: 'rgba(255,255,255,0.4)',
+    pista: 'rgba(255,255,255,0.18)',
   },
 } as const;
 
@@ -36,6 +37,8 @@ export const gradients = {
   logo: 'linear-gradient(140deg, #5B3DF5, #0E8FA3)',
   progreso: 'linear-gradient(90deg, #4B2FE0, #7C5CFF)',
   medidor: 'linear-gradient(90deg, #7C5CFF, #0E8FA3)',
+  carga: 'linear-gradient(90deg, #5FE3F2, #8B7BFF)',
+  desvanecer: 'linear-gradient(180deg, rgba(244,241,250,0) 0%, #F4F1FA 92%)',
   fondoClaro: 'radial-gradient(90% 45% at 90% 0%, #E6DEFF 0%, rgba(230,222,255,0) 70%)',
   fondoOscuro:
     'radial-gradient(80% 50% at 50% 38%, #3A2C8F 0%, rgba(58,44,143,0) 70%), radial-gradient(60% 30% at 0% 100%, #0E5E6B 0%, rgba(14,94,107,0) 70%)',

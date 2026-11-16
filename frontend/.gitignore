@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# Skia web: se copia en postinstall desde node_modules
+public/canvaskit.wasm

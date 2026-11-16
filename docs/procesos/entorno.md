@@ -16,8 +16,25 @@
 | EAS CLI | 27.5.0 | Compilar y subir la app a Google Play |
 | VS Code | 1.145.2 (x64) | Editor |
 | Expo Go (teléfono) | (versión de la tienda) | Ver la app en el teléfono mientras se desarrolla |
+| scrcpy | 3.3.4 (win64) | Ver y controlar el celular Android en la PC por USB (trae adb) |
 | GitHub CLI | (pendiente, opcional) | Abrir PRs desde la terminal |
 | Python | 3.15.2 | security-guidance (día 1) y Graphify (día 10) |
+
+## Ver el celular en la PC (scrcpy)
+Sirve para revisar la app de Expo Go en una ventana de la PC, sacar capturas y
+dejar que Claude Code las tome con adb para comprobar cambios en Android.
+
+1. Descargar `scrcpy-win64-v3.3.4.zip` desde https://github.com/Genymobile/scrcpy/releases
+   y descomprimirlo (por ejemplo en Descargas). No necesita instalación.
+2. En el celular: Ajustes → Acerca del teléfono → tocar 7 veces "Número de
+   compilación" para activar las Opciones de desarrollador. Después, en
+   Opciones de desarrollador, activar **Depuración USB**.
+3. Conectar el celular por USB y aceptar el aviso "¿Permitir depuración USB?".
+4. Abrir `scrcpy.exe` (doble clic). La pantalla del celular aparece en la PC.
+5. Con `npx expo start` corriendo, abrir la app en Expo Go como siempre.
+
+Captura desde Git Bash, dentro de la carpeta de scrcpy:
+`./adb.exe exec-out screencap -p > captura.png`
 
 ## Extensiones de VS Code recomendadas
 ESLint, Prettier, Prisma, Docker y Expo Tools.

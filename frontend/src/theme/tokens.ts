@@ -1,4 +1,4 @@
-import { Easing } from 'react-native-reanimated';
+import { cubicBezier, Easing } from 'react-native-reanimated';
 
 // Escala de espacios en la cuadrícula de 4 pt. El diseño usa 24 como margen
 // lateral de pantalla y 12/14 entre campos; se toma el paso más cercano.
@@ -38,13 +38,20 @@ export const shadows = {
   tarjeta: '0px 10px 26px -20px rgba(60, 40, 140, 0.6)',
   foco: '0px 0px 0px 4px rgba(124, 92, 255, 0.15)',
   seleccion: '0px 0px 0px 4px rgba(91, 61, 245, 0.14)',
+  // Separa el botón de vidrio de las ondas del Splash para que no se vea hundido.
+  flotante: '0px 8px 24px rgba(10, 6, 40, 0.5)',
 } as const;
 
 export const motion = {
   presion: 120,
   estado: 180,
   entrada: 250,
+  lento: 600,
   // Curvas del skill de animación: nunca ease-in en interfaz.
   easeOut: Easing.bezier(0.23, 1, 0.32, 1),
   easeInOut: Easing.bezier(0.77, 0, 0.175, 1),
+  // Curvas para animaciones CSS de Reanimated. En Android no acepta el texto
+  // "cubic-bezier(...)": hay que usar la función cubicBezier.
+  curvaEntrada: cubicBezier(0.2, 0.8, 0.2, 1),
+  curvaCarga: cubicBezier(0.33, 0, 0.2, 1),
 } as const;

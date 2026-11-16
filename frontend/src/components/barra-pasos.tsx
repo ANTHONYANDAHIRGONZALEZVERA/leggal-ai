@@ -1,7 +1,7 @@
 import { View } from 'react-native';
-import Animated, { useReducedMotion } from 'react-native-reanimated';
+import Animated, { useReducedMotion, type CSSAnimationKeyframes } from 'react-native-reanimated';
 
-import { colors, fontFamily, gradients, spacing } from '@/theme';
+import { colors, fontFamily, gradients, motion, spacing } from '@/theme';
 
 import { Texto } from './texto';
 
@@ -12,9 +12,10 @@ type Props = {
 
 const ALTO = 5;
 
-const rellenar = {
-  from: { transform: [{ scaleX: 0 }] },
-  to: { transform: [{ scaleX: 1 }] },
+// Relleno absoluto y sin hijos: animar su ancho no recalcula el resto.
+const rellenar: CSSAnimationKeyframes = {
+  from: { width: '0%' },
+  to: { width: '100%' },
 };
 
 // Barra "2/5" del onboarding. Los pasos hechos están llenos y el actual se
@@ -38,12 +39,12 @@ export function BarraPasos({ actual, total }: Props) {
             {paso <= actual && (
               <Animated.View
                 style={[
-                  { flex: 1, borderRadius: ALTO / 2, backgroundImage: gradients.progreso, transformOrigin: 'left' },
+                  { position: 'absolute', left: 0, top: 0, bottom: 0, width: '100%', borderRadius: ALTO / 2, backgroundImage: gradients.progreso },
                   paso === actual &&
                     !reducido && {
                       animationName: rellenar,
                       animationDuration: 1100,
-                      animationTimingFunction: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+                      animationTimingFunction: motion.curvaEntrada,
                     },
                 ]}
               />
