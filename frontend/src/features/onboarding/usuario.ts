@@ -26,14 +26,3 @@ export const esquemaUsuario = z
       .refine((u) => !/[._]{2}/.test(u), 'No uses dos símbolos seguidos')
       .refine((u) => !/[._]$/.test(u), 'No puede terminar en punto ni guion bajo'),
   );
-
-/** Primera propuesta a partir del nombre: "Andrea Ruiz" → "andrea.ruiz". */
-export function sugerirUsuario(nombre: string) {
-  const palabras = normalizarUsuario(nombre.replace(/\s+/g, '.'))
-    .replace(/[^a-z0-9.]/g, '')
-    .split('.')
-    .filter(Boolean);
-  if (palabras.length === 0) return '';
-  const base = palabras.length > 1 ? `${palabras[0]}.${palabras[palabras.length - 1]}` : palabras[0];
-  return base.slice(0, MAXIMO_USUARIO);
-}

@@ -22,10 +22,8 @@ import { cerrarSesion } from '@/features/auth/api';
 import { claveDisponibilidad, consultarUsuario } from '@/features/onboarding/api';
 import { useBorradorOnboarding } from '@/features/onboarding/borrador';
 import { esquemaPerfil, type DatosPerfil, type PerfilValidado } from '@/features/onboarding/esquemas';
-import { useDisponibilidad, type EstadoUsuario } from '@/features/onboarding/use-disponibilidad';
-import { sugerirUsuario } from '@/features/onboarding/usuario';
+import { useDisponibilidad, useSugerencias, type EstadoUsuario } from '@/features/onboarding/use-disponibilidad';
 import { aplicarErrorApi } from '@/services/api/errores-formulario';
-import { useSesion } from '@/services/sesion';
 import { colors, fontFamily, MARGEN_PANTALLA, spacing } from '@/theme';
 
 // Texto y color bajo el @usuario según lo que respondió el servidor.
@@ -36,17 +34,16 @@ const avisoUsuario: Partial<Record<EstadoUsuario, { texto: string; color: string
   error: { texto: 'No se pudo revisar ahora. Se revisará al continuar.', color: colors.textoSecundario },
 };
 
-// Onboarding 1/5 "¿Cómo te llamamos?" (F30): nombre visible y @usuario único,
-// revisado en el servidor mientras se escribe y con sugerencias libres.
+// Onboarding 1/5 "¿Cómo te llamamos?" (F30). Los campos empiezan vacíos: al
+// escribir el nombre visible aparecen @usuarios libres armados con él, y el
+// @usuario se revisa en el servidor mientras se escribe.
 export default function Perfil() {
   const campoUsuario = useRef<TextInputInstance>(null);
   const clienteConsultas = useQueryClient();
-  const nombreCuenta = useSesion((s) => s.usuario?.nombre ?? '');
   const { perfil, guardarPerfil } = useBorradorOnboarding();
   const [errorGeneral, setErrorGeneral] = useState<string>();
 
   // Si vuelve desde el paso 2, encuentra lo que ya había llenado.
-  const nombreInicial = perfil?.nombre ?? nombreCuenta;
   const {
     control,
     handleSubmit,
@@ -55,10 +52,11 @@ export default function Perfil() {
     formState: { errors, isSubmitting },
   } = useForm<DatosPerfil, unknown, PerfilValidado>({
     resolver: zodResolver(esquemaPerfil),
-    defaultValues: { nombre: nombreInicial, usuario: perfil?.usuario ?? sugerirUsuario(nombreInicial) },
+    defaultValues: { nombre: perfil?.nombre ?? '', usuario: perfil?.usuario ?? '' },
   });
   const [nombre, usuario] = useWatch({ control, name: ['nombre', 'usuario'] });
-  const { estado, sugerencias } = useDisponibilidad(usuario);
+  const estado = useDisponibilidad(usuario);
+  const sugerencias = useSugerencias(nombre);
 
   const continuar = handleSubmit(async (datos) => {
     setErrorGeneral(undefined);
@@ -117,7 +115,7 @@ export default function Perfil() {
               render={({ field: { onChange, onBlur, value } }) => (
                 <CampoTexto
                   etiqueta="Nombre visible"
-                  placeholder="Tu nombre"
+                  placeholder="Ej.: Andrea Ruiz"
                   autoCapitalize="words"
                   autoComplete="name"
                   textContentType="name"

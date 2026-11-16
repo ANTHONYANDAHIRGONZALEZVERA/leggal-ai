@@ -2,9 +2,9 @@ import { screen, userEvent, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import Perfil from '@/app/(onboarding)/perfil';
-import { registrarse } from '@/features/auth/api';
+import { iniciarSesion } from '@/features/auth/api';
 import { renderizar } from '@/pruebas/renderizar';
-import { reiniciarMock } from '@/services/api/mock';
+import { reiniciarMock, USUARIO_NUEVO } from '@/services/api/mock';
 import { useSesion } from '@/services/sesion';
 
 import { useBorradorOnboarding } from '../borrador';
@@ -20,39 +20,65 @@ jest.mock('@/components/icono', () => ({ Icono: () => null }));
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => false) } }));
 
-// Cuenta recién creada en la API simulada ("Andrea Ruiz"), con su token real.
+// Cuenta de prueba con el onboarding pendiente, con su token real de la API simulada.
 beforeEach(async () => {
   jest.clearAllMocks();
   reiniciarMock();
   useBorradorOnboarding.getState().vaciar();
-  useSesion.getState().iniciar(
-    await registrarse({ nombre: 'Andrea Ruiz', correo: 'andrea@empresa.com', contrasena: 'Leggal2026!', aceptaTerminos: true }),
-  );
+  useSesion.getState().iniciar(await iniciarSesion({ correo: USUARIO_NUEVO.correo, contrasena: USUARIO_NUEVO.contrasena }));
 });
 
+const campoNombre = () => screen.getByLabelText('Nombre visible');
 const campoUsuario = () => screen.getByLabelText('Nombre de usuario');
 
 // Paso 1/5 "¿Cómo te llamamos?" (F30), contra la API simulada.
 describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
-  test('propone el nombre de la cuenta y un @usuario armado con él', async () => {
+  test('los dos campos empiezan vacíos y sin sugerencias', async () => {
     await renderizar(<Perfil />);
 
-    expect(screen.getByLabelText('Nombre visible')).toHaveProp('value', 'Andrea Ruiz');
-    expect(campoUsuario()).toHaveProp('value', 'andrea.ruiz');
-    expect(screen.getByTestId('avatar')).toHaveTextContent('AR');
+    expect(campoNombre()).toHaveProp('value', '');
+    expect(campoUsuario()).toHaveProp('value', '');
+    expect(screen.queryByLabelText('Sugerencias de nombre de usuario')).not.toBeOnTheScreen();
   });
 
-  test('si el @usuario propuesto está tomado lo avisa y ofrece sugerencias libres', async () => {
-    await renderizar(<Perfil />);
-
-    expect(await screen.findByText('Ya está en uso. Prueba una sugerencia.')).toBeOnTheScreen();
-    expect(screen.getByText('@ab.andrearuiz')).toBeOnTheScreen();
-    expect(screen.getByText('@aruiz.legal')).toBeOnTheScreen();
-  });
-
-  test('al tocar una sugerencia la usa y queda "Disponible"', async () => {
+  test('al escribir el nombre aparecen sugerencias armadas con lo escrito', async () => {
     const user = userEvent.setup();
     await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), 'Bruno Díaz');
+
+    expect(await screen.findByText('@bruno.diaz')).toBeOnTheScreen();
+    expect(screen.getByText('@bdiaz.legal')).toBeOnTheScreen();
+    expect(screen.getByText('@brunodiaz')).toBeOnTheScreen();
+  });
+
+  test('las sugerencias cambian si cambia el nombre', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+    await user.type(campoNombre(), 'Bruno Díaz');
+    await screen.findByText('@bruno.diaz');
+
+    await user.clear(campoNombre());
+    await user.type(campoNombre(), 'Carla Mora');
+
+    expect(await screen.findByText('@carla.mora')).toBeOnTheScreen();
+    expect(screen.queryByText('@bruno.diaz')).not.toBeOnTheScreen();
+  });
+
+  test('no sugiere un @usuario que ya está tomado', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), 'Andrea Ruiz');
+
+    expect(await screen.findByText('@aruiz.legal')).toBeOnTheScreen();
+    expect(screen.queryByText('@andrea.ruiz')).not.toBeOnTheScreen();
+  });
+
+  test('al tocar una sugerencia llena el @usuario y queda "Disponible"', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+    await user.type(campoNombre(), 'Andrea Ruiz');
 
     await user.press(await screen.findByText('@aruiz.legal'));
 
@@ -60,21 +86,29 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
     expect(await screen.findByText('Disponible')).toBeOnTheScreen();
   });
 
+  test('si escribe a mano un @usuario tomado lo avisa', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoUsuario(), 'andrea.ruiz');
+
+    expect(await screen.findByText('Ya está en uso. Prueba una sugerencia.')).toBeOnTheScreen();
+  });
+
   test('las iniciales del avatar siguen al nombre que se escribe', async () => {
     const user = userEvent.setup();
     await renderizar(<Perfil />);
 
-    await user.clear(screen.getByLabelText('Nombre visible'));
-    await user.type(screen.getByLabelText('Nombre visible'), 'Bruno Díaz');
+    await user.type(campoNombre(), 'Bruno Díaz');
 
     expect(screen.getByTestId('avatar')).toHaveTextContent('BD');
   });
 
-  test('con un @usuario libre guarda el paso en el borrador y pasa al 2/5', async () => {
+  test('con nombre y un @usuario libre guarda el paso y pasa al 2/5', async () => {
     const user = userEvent.setup();
     await renderizar(<Perfil />);
 
-    await user.clear(campoUsuario());
+    await user.type(campoNombre(), 'Andrea Ruiz');
     await user.type(campoUsuario(), '@Andrea.Legal');
     await user.press(screen.getByLabelText('Continuar'));
 
@@ -83,11 +117,24 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
     expect(useBorradorOnboarding.getState().perfil).toEqual({ nombre: 'Andrea Ruiz', usuario: 'andrea.legal' });
   });
 
+  test('vacío no avanza y pide los dos datos', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Continuar'));
+
+    expect(await screen.findByText('Ingresa tu nombre')).toBeOnTheScreen();
+    expect(screen.getByText('Mínimo 3 caracteres')).toBeOnTheScreen();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
   test('con un @usuario tomado no avanza aunque se toque Continuar enseguida', async () => {
     // Toca Continuar antes de que termine la revisión que se hace mientras
     // escribe: se revisa de nuevo al continuar y no deja pasar.
     const user = userEvent.setup();
     await renderizar(<Perfil />);
+    await user.type(campoNombre(), 'Andrea Ruiz');
+    await user.type(campoUsuario(), 'andrea.ruiz');
 
     await user.press(screen.getByLabelText('Continuar'));
 
@@ -99,8 +146,8 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
   test('un @usuario con formato inválido muestra la regla y no avanza', async () => {
     const user = userEvent.setup();
     await renderizar(<Perfil />);
+    await user.type(campoNombre(), 'Andrea Ruiz');
 
-    await user.clear(campoUsuario());
     await user.type(campoUsuario(), 'andrea..ruiz');
     await user.press(screen.getByLabelText('Continuar'));
 
@@ -113,7 +160,7 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
 
     await renderizar(<Perfil />);
 
-    expect(screen.getByLabelText('Nombre visible')).toHaveProp('value', 'Andrea R.');
+    expect(campoNombre()).toHaveProp('value', 'Andrea R.');
     expect(campoUsuario()).toHaveProp('value', 'aruiz.legal');
   });
 

@@ -1,4 +1,4 @@
-import { esquemaUsuario, normalizarUsuario, sugerirUsuario } from '../usuario';
+import { esquemaUsuario, normalizarUsuario } from '../usuario';
 
 // Reglas del @usuario del paso 1/5 (F30).
 
@@ -41,26 +41,5 @@ describe('esquemaUsuario', () => {
     expect(errorDe('andrea..ruiz')).toBe('No uses dos símbolos seguidos');
     expect(errorDe('andrea._ruiz')).toBe('No uses dos símbolos seguidos');
     expect(errorDe('andrea.')).toBe('No puede terminar en punto ni guion bajo');
-  });
-});
-
-describe('sugerirUsuario', () => {
-  test('arma nombre.apellido con el primer nombre y el último apellido', () => {
-    expect(sugerirUsuario('Andrea Ruiz')).toBe('andrea.ruiz');
-    expect(sugerirUsuario('María José Pérez Núñez')).toBe('maria.nunez');
-  });
-
-  test('con un solo nombre lo usa tal cual', () => {
-    expect(sugerirUsuario('Andrea')).toBe('andrea');
-  });
-
-  test('descarta símbolos y la propuesta siempre cumple las reglas', () => {
-    const propuesta = sugerirUsuario("D'Angelo O'Brien");
-    expect(propuesta).toBe('dangelo.obrien');
-    expect(esquemaUsuario.safeParse(propuesta).success).toBe(true);
-  });
-
-  test('sin nombre no propone nada', () => {
-    expect(sugerirUsuario('  ')).toBe('');
   });
 });

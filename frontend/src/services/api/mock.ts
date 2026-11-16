@@ -84,17 +84,27 @@ function duenoDelToken(cabeceras: Record<string, string>) {
   return usuarios.get(correo) ?? null;
 }
 
-/** Hasta 3 @usuarios libres armados con el nombre: "Andrea Ruiz" → ab.andrearuiz, aruiz.legal… */
+/**
+ * Hasta 3 @usuarios libres, distintos entre sí, armados con el nombre que la
+ * persona escribe: "Andrea Ruiz" → aruiz.legal, andrearuiz, ruiz.andrea…
+ * Siempre cumplen las reglas del @usuario (empiezan con letra, máximo 30).
+ */
 function sugerenciasPara(nombre: string) {
-  const [n = 'usuario', ...resto] = quitarAcentos(nombre)
+  const palabras = quitarAcentos(nombre)
     .toLowerCase()
     .replace(/[^a-z\s]/g, '')
     .split(/\s+/)
     .filter(Boolean);
-  const a = resto[resto.length - 1] ?? 'legal';
-  const candidatos = [`${n}.${a}`, `${n[0]}b.${n}${a}`, `${n[0]}${a}.legal`, `${n}${a}`, `${n}.${a}.abogado`, `${n}.${a}1`];
-  // No depende de lo que se está escribiendo: la lista queda quieta mientras se elige.
-  return candidatos.filter((c) => !usuariosTomados.has(c)).slice(0, 3);
+  if (palabras.length === 0) return [];
+  const n = palabras[0];
+  const a = palabras.length > 1 ? palabras[palabras.length - 1] : '';
+  const candidatos = a
+    ? [`${n}.${a}`, `${n[0]}${a}.legal`, `${n}${a}`, `${a}.${n}`, `${n}.${a[0]}`, `${n}_${a}`, `${n}.${a}.legal`]
+    : [n, `${n}.legal`, `${n}.abogado`, `${n}_legal`, `${n}.juridico`];
+  // Set: sin repetidos. Tomados: fuera. Así ninguna sugerencia falla al elegirla.
+  return [...new Set(candidatos.map((c) => c.slice(0, 30)))]
+    .filter((c) => c.length >= 3 && !usuariosTomados.has(c))
+    .slice(0, 3);
 }
 
 type Manejador = (cuerpo: Cuerpo) => RespuestaTransporte;
@@ -102,12 +112,8 @@ type Manejador = (cuerpo: Cuerpo) => RespuestaTransporte;
 type ManejadorPrivado = (cuerpo: Cuerpo, persona: UsuarioSimulado) => RespuestaTransporte;
 
 const rutasPrivadas: Record<string, ManejadorPrivado> = {
-  'GET /usuarios/disponible': ({ usuario }, persona) =>
-    responder(200, {
-      usuario,
-      disponible: !usuariosTomados.has(usuario),
-      sugerencias: sugerenciasPara(persona.nombre),
-    }),
+  'GET /usuarios/disponible': ({ usuario }) => responder(200, { usuario, disponible: !usuariosTomados.has(usuario) }),
+  'GET /usuarios/sugerencias': ({ nombre = '' }) => responder(200, { sugerencias: sugerenciasPara(nombre) }),
 };
 
 const rutas: Record<string, Manejador> = {

@@ -51,12 +51,15 @@ Cuerpo: `{ "renovacion": "<token de renovación>" }`.
 Revisa si un @usuario está libre. La app solo consulta textos con formato
 válido (3 a 30 caracteres; letras minúsculas, números, punto y guion bajo;
 empieza con letra) y espera 400 ms después de la última tecla.
-- **200** → `{ "usuario": "andrea.ruiz", "disponible": false, "sugerencias": ["ab.andrearuiz", "aruiz.legal", "andrearuiz"] }`
-  - `sugerencias`: hasta 3 @usuarios **libres** armados con el nombre de la
-    persona. No dependen de lo que se está escribiendo, para que la lista no
-    cambie mientras elige.
-- La app vuelve a consultar al tocar Continuar; el envío definitivo del
-  onboarding (con el @usuario) es al final del paso 5/5 (F31).
+- **200** → `{ "usuario": "andrea.ruiz", "disponible": false }`
+- La app vuelve a consultar al tocar Continuar.
+
+### `GET /usuarios/sugerencias?nombre=<nombre visible>` (privada, F30)
+Mientras la persona escribe su nombre visible (desde 2 letras, 400 ms después
+de la última tecla), la app pide @usuarios armados con ese nombre.
+- **200** → `{ "sugerencias": ["aruiz.legal", "andrearuiz", "ruiz.andrea"] }`
+  - Hasta 3, **libres**, **sin repetidos** y que cumplan las reglas del @usuario.
+- El envío definitivo del onboarding (con el @usuario) es al final del paso 5/5 (F31).
 
 ## Cómo reacciona la app
 - Antes de cada petición privada, si al token de acceso le quedan menos de 60 s
