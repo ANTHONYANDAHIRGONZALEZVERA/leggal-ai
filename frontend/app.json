@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "leggalai",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "icon": "./assets/expo.icon"
     },
@@ -28,7 +28,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#120F26",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -51,6 +51,7 @@
         "projectId": "1a988a76-2c27-437c-901d-780e3e7fbfd0"
       }
     },
-    "owner": "anthonygv20"
+    "owner": "anthonygv20",
+    "backgroundColor": "#F4F1FA"
   }
 }
