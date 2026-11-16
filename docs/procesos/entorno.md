@@ -17,6 +17,7 @@
 | VS Code | 1.145.2 (x64) | Editor |
 | Expo Go (teléfono) | (versión de la tienda) | Ver la app en el teléfono mientras se desarrolla |
 | GitHub CLI | (pendiente, opcional) | Abrir PRs desde la terminal |
+| Python | 3.15.2 | security-guidance (día 1) y Graphify (día 10) |
 
 ## Extensiones de VS Code recomendadas
 ESLint, Prettier, Prisma, Docker y Expo Tools.
@@ -25,6 +26,15 @@ ESLint, Prettier, Prisma, Docker y Expo Tools.
 | Plugin | Cómo instalarlo | Para qué |
 |---|---|---|
 | expo@anthropic-plugin-directory | `claude plugin install expo@anthropic-plugin-directory` | Skills oficiales de Expo y EAS |
+| security-guidance@anthropic-plugin-directory (2.0.17) | `claude plugin install security-guidance@anthropic-plugin-directory` | Avisa si Claude escribe código con patrones peligrosos y revisa cada cambio con IA. Requiere Python 3.8+ en el PATH. Las reglas del proyecto están en `.claude/claude-security-guidance.md` |
+
+Notas de security-guidance:
+- Cada revisión consume uso de la cuenta de Claude (por defecto usa el modelo más
+  reciente de Opus). Si gasta demasiado, definir la variable
+  `SECURITY_REVIEW_MODEL=claude-sonnet-5-5`.
+- Reglas personales que no se suben: `.claude/claude-security-guidance.local.md`.
+- Su registro está en `~/.claude/security/log.txt`.
+- Si Claude y la persona no coinciden en un aviso, decide la persona.
 
 ## Cuentas necesarias (una por persona, nunca se suben al repositorio)
 - GitHub, con acceso al repositorio.

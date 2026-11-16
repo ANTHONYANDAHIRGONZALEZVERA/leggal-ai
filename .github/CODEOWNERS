@@ -1,2 +1,19 @@
-# Tu compañero revisa todo el repositorio
-* @ANTHONYANDAHIRGONZALEZVERA
+# Quién revisa cada carpeta. GitHub no deja aprobar la propia PR,
+# así que cada uno revisa el trabajo del otro.
+# La última regla que coincide con un archivo es la que manda.
+
+# Archivos de la raíz sin dueño específico: cualquiera de los dos
+*                   @ANTHONYANDAHIRGONZALEZVERA @CJjoelD
+
+# Backend (Joel) lo revisa Anthony
+/backend/           @ANTHONYANDAHIRGONZALEZVERA
+
+# Frontend (Anthony) lo revisa Joel
+/frontend/          @CJjoelD
+
+# Compartido: basta la aprobación de cualquiera de los dos
+/docs/              @ANTHONYANDAHIRGONZALEZVERA @CJjoelD
+/.github/           @ANTHONYANDAHIRGONZALEZVERA @CJjoelD
+/CLAUDE.md          @ANTHONYANDAHIRGONZALEZVERA @CJjoelD
+/backend/CLAUDE.md  @ANTHONYANDAHIRGONZALEZVERA @CJjoelD
+/frontend/CLAUDE.md @ANTHONYANDAHIRGONZALEZVERA @CJjoelD
