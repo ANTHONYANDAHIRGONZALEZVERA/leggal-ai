@@ -17,7 +17,7 @@
 | VS Code | 1.145.2 (x64) | Editor |
 | Expo Go (teléfono) | (versión de la tienda) | Ver la app en el teléfono mientras se desarrolla |
 | scrcpy | 3.3.4 (win64) | Ver y controlar el celular Android en la PC por USB (trae adb) |
-| GitHub CLI | (pendiente, opcional) | Abrir PRs desde la terminal |
+| GitHub CLI | 2.104.0 | Abrir y revisar PRs desde la terminal (`winget install --id GitHub.cli -e`, luego `gh auth login`) |
 | Python | 3.15.2 | security-guidance (día 1) y Graphify (día 10) |
 
 ## Ver el celular en la PC (scrcpy)
