@@ -65,4 +65,37 @@ Quitados en F04 (solo los usaba el ejemplo de la plantilla): expo-device, expo-g
 ## Backend (backend/)
 | Fecha | Paquete | Versión | Para qué | Quién |
 |---|---|---|---|---|
-| (pendiente: se llena al crear NestJS y Prisma) | | | | |
+| 2026-11-08 | @nestjs/common | 12.4.0 | Decoradores, módulos y utilidades base de NestJS | Tony |
+| 2026-11-08 | @nestjs/core | 12.4.0 | Núcleo de NestJS (inyección de dependencias y arranque) | Tony |
+| 2026-11-08 | @nestjs/platform-express | 12.4.0 | Servidor HTTP de NestJS sobre Express | Tony |
+| 2026-11-08 | @prisma/client | 7.10.1 | Cliente de Prisma para consultar PostgreSQL | Tony |
+| 2026-11-08 | reflect-metadata | 0.2.2 | Metadatos de decoradores; lo exige NestJS | Tony |
+| 2026-11-08 | rxjs | 7.8.2 | Flujos reactivos; lo exige NestJS (interceptores y guards) | Tony |
+
+Solo para desarrollo (`devDependencies`, no van al servidor en producción):
+| Fecha | Paquete | Versión | Para qué | Quién |
+|---|---|---|---|---|
+| 2026-11-08 | @nestjs/cli | 12.0.12 | Compilar y arrancar la API (`nest build`, `nest start`) | Tony |
+| 2026-11-08 | @nestjs/schematics | 12.0.13 | Plantillas de `nest generate` para módulos y servicios | Tony |
+| 2026-11-08 | @nestjs/testing | 12.4.0 | Crear módulos de prueba en Jest | Tony |
+| 2026-11-08 | @types/express | 5.0.6 | Tipos de Express para TypeScript | Tony |
+| 2026-11-08 | @types/jest | 30.0.0 | Tipos de TypeScript para las pruebas | Tony |
+| 2026-11-17 | @types/node | 26.6.6 | Tipos de Node; alineados con Node 26 del equipo (B01) | Joel |
+| 2026-11-08 | @types/supertest | 7.2.1 | Tipos de Supertest | Tony |
+| 2026-11-17 | dotenv | 17.4.2 | Cargar el `.env` en `prisma.config.ts`; Prisma 7 ya no lo lee solo (B01) | Joel |
+| 2026-11-08 | jest | 30.5.2 | Pruebas unitarias y e2e | Tony |
+| 2026-11-08 | oxlint | 1.92.0 | Revisar estilo y errores comunes del código | Tony |
+| 2026-11-08 | oxlint-tsgolint | 7.0.2006 | Reglas de oxlint que usan los tipos (por ejemplo, promesas sin esperar) | Tony |
+| 2026-11-08 | prettier | 3.9.10 | Formato del código | Tony |
+| 2026-11-08 | prisma | 7.10.1 | CLI de Prisma: migraciones y generación del cliente | Tony |
+| 2026-11-08 | source-map-support | 0.5.21 | Errores con la línea del código TypeScript original | Tony |
+| 2026-11-08 | supertest | 7.3.2 | Peticiones HTTP en las pruebas e2e | Tony |
+| 2026-11-08 | ts-jest | 29.4.15 | Correr las pruebas de Jest escritas en TypeScript | Tony |
+| 2026-11-08 | ts-loader | 9.6.2 | Compilar TypeScript cuando se usa webpack en Nest | Tony |
+| 2026-11-08 | ts-node | 10.9.2 | Ejecutar TypeScript sin compilar (depuración de pruebas) | Tony |
+| 2026-11-08 | tsconfig-paths | 4.2.0 | Resolver los alias de rutas de `tsconfig.json` | Tony |
+| 2026-11-08 | typescript | 6.0.3 | Tipado estático | Tony |
+
+Quitado en B01: `@nestjs/observe` (lo agregó la plantilla de Nest, nunca se
+instaló y enviaba telemetría a un servicio externo). La observabilidad se
+decidirá aparte.

@@ -75,8 +75,11 @@ Notas de security-guidance:
 ## Servicios en Docker
 | Servicio | Imagen y versión | Puerto |
 |---|---|---|
-| PostgreSQL + pgvector | pgvector/pgvector:pg16 | 5432 |
-| Redis | redis:7 | 6379 |
+| PostgreSQL + pgvector | pgvector/pgvector:0.8.7-pg16-bookworm | 5432 |
+| Redis | redis:7.4.12-bookworm | 6379 |
+
+Los dos tienen healthcheck (`pg_isready` y `redis-cli ping`). Con
+`docker compose ps` se ve si están `healthy` antes de migrar o arrancar la API.
 
 ## Cómo dejarlo andando (compañero nuevo)
 1. Instalar las herramientas de la tabla con esas versiones.
@@ -86,4 +89,8 @@ Notas de security-guidance:
 5. Instalar Expo Go en el teléfono.
 6. En backend/ y frontend/: `npm ci`.
 7. Copiar `.env.example` a `.env` y completar los valores.
-8. En backend/: `docker compose up -d`.
+8. En backend/: `docker compose up -d` y esperar a que `docker compose ps`
+   muestre los dos servicios como `healthy`.
+9. En backend/: `npx prisma generate` y luego `npm run start:dev`.
+   Prisma necesita el `.env` del paso 7: sin `DATABASE_URL` falla con
+   `Cannot resolve environment variable: DATABASE_URL`.
