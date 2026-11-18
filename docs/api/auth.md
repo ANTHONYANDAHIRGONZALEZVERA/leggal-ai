@@ -21,6 +21,7 @@ empresa se documentan en este mismo archivo cuando lleguen (semana 2).
 | Identificadores | UUID v4 en texto. |
 | Autenticación | Cabecera `Authorization: Bearer <tokenAcceso>` en las rutas protegidas. |
 | Dispositivo | Cabecera `X-Dispositivo: android`, `ios` o `web` en **todas** las peticiones. Se guarda en `sesiones` y en `auditoria`. Si falta o trae otro valor, se guarda como `desconocido`; no se rechaza la petición. |
+| Versión de la app | Cabecera **opcional** `X-Version-App` con la versión de la app (`1.0.0`). Sirve para saber desde qué versión se hizo una acción cuando hay que dar soporte o revisar la auditoría. Se guarda en los logs y en el `detalle` de `auditoria`. Si falta o no tiene la forma `número.número.número`, se ignora; no se rechaza la petición. |
 | Correo | El backend lo guarda recortado y en minúsculas, igual que el formulario de la app. |
 
 ## Tokens
@@ -72,6 +73,10 @@ Reglas:
 3. Si dos peticiones intentan renovar a la vez, la segunda caería en el punto 2.
    Por eso el cliente de la app debe hacer **un solo refresh a la vez** y
    compartir el resultado entre las peticiones que esperan.
+4. En red móvil la respuesta del refresh se puede perder después de que el
+   servidor ya rotó el token, y la app reenviaría el anterior. Para que eso no
+   cierre todas las sesiones, se propone una ventana de gracia corta (ver
+   [Pendiente de confirmar](#pendiente-de-confirmar-en-la-revisión)).
 
 ## Formato de error estándar
 
@@ -108,6 +113,33 @@ Códigos de la semana 1:
 | 429 | `DEMASIADOS_INTENTOS` | Se superó el límite de peticiones. La respuesta trae la cabecera `Retry-After` en segundos. |
 | 500 | `ERROR_INTERNO` | Error no esperado. El mensaje es genérico y no trae detalles del servidor. |
 
+## Objeto usuario
+
+`register`, `login`, `refresh` y `me` devuelven **exactamente el mismo** objeto
+`usuario`. Así la app tiene todo lo que necesita para decidir la primera
+pantalla (verificar correo, onboarding o inicio) sin hacer una segunda petición.
+
+```json
+{
+  "id": "8f1c2d7a-3b4e-4f6a-9c1d-2e3f4a5b6c7d",
+  "nombre": "Andrea Ruiz Mora",
+  "nombreVisible": null,
+  "nombreUsuario": null,
+  "correo": "andrea.ruiz@ejemplo.com",
+  "correoVerificado": false,
+  "onboardingCompleto": false,
+  "creadoEn": "2026-11-17T14:05:00.000Z"
+}
+```
+
+| Campo | Significado |
+|---|---|
+| `nombre` | Nombres y apellidos, como se escribieron al registrarse. |
+| `nombreVisible`, `nombreUsuario` | Se llenan en el onboarding (B34). Son `null` hasta entonces. |
+| `correoVerificado` | `false` hasta verificar el correo con el código (B27). La app lo usa para mostrar "Revisa tu correo". |
+| `onboardingCompleto` | `false` hasta terminar el paso 5/5. La app lo usa para decidir si muestra el onboarding. |
+| `creadoEn` | Fecha de registro. |
+
 ## Respuesta de sesión
 
 `register`, `login` y `refresh` devuelven el mismo objeto:
@@ -120,14 +152,21 @@ Códigos de la semana 1:
   "usuario": {
     "id": "8f1c2d7a-3b4e-4f6a-9c1d-2e3f4a5b6c7d",
     "nombre": "Andrea Ruiz Mora",
+    "nombreVisible": null,
+    "nombreUsuario": null,
     "correo": "andrea.ruiz@ejemplo.com",
-    "correoVerificado": false
+    "correoVerificado": false,
+    "onboardingCompleto": false,
+    "creadoEn": "2026-11-17T14:05:00.000Z"
   }
 }
 ```
 
-`venceEn` son los segundos de vida del `tokenAcceso`. Como la app guarda la
-respuesta tal cual, no necesita decodificar el JWT para el primer cálculo.
+- `usuario` es el [objeto usuario](#objeto-usuario) completo.
+- `venceEn` son los segundos de vida del `tokenAcceso`. Como la app guarda la
+  respuesta tal cual, no necesita decodificar el JWT para el primer cálculo.
+- La lista de empresas no va aquí: está en `GET /auth/me`, que la app pide
+  cuando la necesita (semana 2).
 
 ---
 
@@ -145,6 +184,7 @@ directo a "Revisa tu correo" sin volver a escribir la contraseña.
 POST /auth/register
 Content-Type: application/json
 X-Dispositivo: android
+X-Version-App: 1.0.0
 ```
 
 ```json
@@ -209,6 +249,7 @@ Valida correo y contraseña, crea una fila en `sesiones` y devuelve los tokens.
 POST /auth/login
 Content-Type: application/json
 X-Dispositivo: android
+X-Version-App: 1.0.0
 ```
 
 ```json
@@ -264,6 +305,7 @@ Entrega un par nuevo de tokens y marca el refresh anterior como usado.
 POST /auth/refresh
 Content-Type: application/json
 X-Dispositivo: android
+X-Version-App: 1.0.0
 ```
 
 ```json
@@ -315,6 +357,7 @@ persona siguen abiertas. Para cerrarlas está `POST /auth/logout-others`
 POST /auth/logout
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 X-Dispositivo: android
+X-Version-App: 1.0.0
 ```
 
 Sin cuerpo.
@@ -331,9 +374,10 @@ sesión local igual: para la persona el resultado es el mismo.
 
 ## GET /auth/me
 
-Devuelve los datos de la persona y sus empresas. La app lo llama al abrirse y al
-volver del segundo plano. También sirve para comprobar que la sesión sigue
-vigente.
+Devuelve los datos de la persona y sus empresas. La app lo llama al volver del
+segundo plano y cuando necesita la lista de empresas. También sirve para
+comprobar que la sesión sigue vigente. Al abrir la app no hace falta: el
+refresh ya trae el [objeto usuario](#objeto-usuario).
 
 **Protegida:** sí. No exige `tid`: funciona antes de tener empresa.
 
@@ -343,6 +387,7 @@ vigente.
 GET /auth/me
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 X-Dispositivo: android
+X-Version-App: 1.0.0
 ```
 
 ### Respuestas
@@ -381,8 +426,7 @@ Solo aparecen las membresías `activa` y `en_espera`:
 
 | Campo | Significado |
 |---|---|
-| `nombreVisible`, `nombreUsuario` | Se llenan en el onboarding (B34). Son `null` hasta entonces. |
-| `onboardingCompleto` | `false` hasta terminar el paso 5/5. La app lo usa para decidir si lo muestra. |
+| `usuario` | El mismo [objeto usuario](#objeto-usuario) que devuelven `register`, `login` y `refresh`. |
 | `empresaActivaId` | Igual al `tid` del token. |
 | `tipo` | `empresa` o `personal`. |
 | `estadoMembresia` | `activa` o `en_espera`. |
@@ -398,15 +442,36 @@ vuelve al login sin intentar refresh.
 
 ```text
 Abrir app ─► ¿hay tokenRefresco guardado?
-              ├─ no ─► Login / Registro ─► guardar tokens ─► GET /auth/me
+              ├─ no ─► Login / Registro ─► guardar tokens y usuario ─► primera pantalla
               └─ sí ─► POST /auth/refresh
-                        ├─ 200 ─► guardar el refresh nuevo ─► GET /auth/me
-                        └─ 401 ─► borrar sesión local ─► Login
+                        ├─ 200 ─► guardar el refresh nuevo y el usuario ─► primera pantalla
+                        ├─ 401 ─► borrar sesión local ─► Login
+                        └─ sin red, timeout, 5xx o 429 ─► conservar los tokens,
+                                  mostrar "Sin conexión" y reintentar después
 
 Cada petición ─► ¿faltan < 60 s para exp? ─► refresh primero (uno solo a la vez)
              ─► 401 NO_AUTENTICADO ─► un refresh y un solo reintento
              ─► 401 SESION_REVOCADA o REFRESCO_INVALIDO ─► Login
 ```
+
+La primera pantalla sale del [objeto usuario](#objeto-usuario):
+`correoVerificado: false` lleva a "Revisa tu correo", `onboardingCompleto: false`
+al onboarding y, si no, a Inicio.
+
+### Cuándo se cierra la sesión por un fallo del refresh
+
+**Solo un `401` de `/auth/refresh` cierra la sesión** y lleva al login. Cualquier
+otro fallo es pasajero y no dice nada sobre si la sesión sigue siendo válida:
+
+| Fallo de `/auth/refresh` | Qué hace la app |
+|---|---|
+| Sin red o timeout | Conserva los tokens y reintenta cuando vuelva la conexión. |
+| `5xx` | Conserva los tokens y reintenta más tarde, esperando cada vez un poco más. |
+| `429 DEMASIADOS_INTENTOS` | Conserva los tokens y espera los segundos de `Retry-After` antes de reintentar. |
+| `401` (`REFRESCO_INVALIDO` o `SESION_REVOCADA`) | Borra la sesión local y lleva al login. |
+
+Borrar los tokens por un error de red dejaría a la persona fuera de la app solo
+por pasar por una zona sin señal.
 
 ## Pendiente de confirmar en la revisión
 
@@ -418,3 +483,13 @@ Cada petición ─► ¿faltan < 60 s para exp? ─► refresh primero (uno solo
   acepta por facilidad de uso, y el límite de 5 registros por hora por IP reduce
   el riesgo. Revisarlo en B48 (OWASP ASVS).
 - **Límites:** los números de cada ruta son una propuesta inicial para B12.
+- **Ventana de gracia del refresh (B07):** si la respuesta de un refresh se
+  pierde en la red móvil, la app reenvía el token que el servidor acaba de
+  rotar, y hoy eso se tomaría como robo y cerraría todas las sesiones. La
+  propuesta: si un refresh ya usado llega dentro de los **30 segundos**
+  siguientes a su rotación y desde la misma familia de sesión, no se revoca
+  nada: el servidor emite un par nuevo para esa familia y anula el que se
+  perdió. No puede reenviar el par vigente, porque solo guarda su hash. Pasada
+  la ventana, se aplica la regla de robo de siempre. Falta decidir
+  el número exacto y si se exige el mismo dispositivo. El modelo ya tiene lo
+  necesario: `sesiones.usado_en` y `sesiones.familia_id`.
