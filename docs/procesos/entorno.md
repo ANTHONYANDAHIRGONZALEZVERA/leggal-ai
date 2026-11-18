@@ -88,7 +88,9 @@ Los dos tienen healthcheck (`pg_isready` y `redis-cli ping`). Con
 4. `eas login` con tu propia cuenta de Expo y comprobar con `eas whoami`.
 5. Instalar Expo Go en el teléfono.
 6. En backend/ y frontend/: `npm ci`.
-7. Copiar `.env.example` a `.env` y completar los valores.
+7. Copiar `.env.example` a `.env` y completar los valores. En `frontend/` es
+   opcional y se llama `.env.local`: sin él la app usa la API simulada
+   (cuenta de prueba `demo@leggal.ai` / `Leggal2026!`).
 8. En backend/: `docker compose up -d` y esperar a que `docker compose ps`
    muestre los dos servicios como `healthy`.
 9. En backend/: `npx prisma generate` y luego `npm run start:dev`.

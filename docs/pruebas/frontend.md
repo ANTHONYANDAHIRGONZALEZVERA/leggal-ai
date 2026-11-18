@@ -27,6 +27,8 @@ GitHub corre los tres (lint, tipos y pruebas) en cada PR con el workflow
   `<archivo>-test.ts` o `<archivo>-test.tsx`.
 - **Nunca dentro de `src/app/`**: Expo Router trataría el archivo como una
   pantalla. Las pruebas de pantallas van en `src/features/<área>/__tests__/`.
+- Ayudantes para pruebas (no son pruebas): `src/pruebas/`. `renderizar()` dibuja
+  una pantalla con los mismos proveedores que la app (TanStack Query).
 
 ## Qué se reemplaza en las pruebas (y por qué)
 | Qué | Por qué |
@@ -35,8 +37,9 @@ GitHub corre los tres (lint, tipos y pruebas) en cada PR con el workflow
 | `expo-router` (`router`, `Link`) | La navegación real necesita todo el árbol de rutas; basta comprobar a dónde intenta ir la pantalla. |
 | `react-native-safe-area-context` | Usa el mock oficial de la librería (márgenes del teléfono con valores fijos). |
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
+| Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (35)
+## Pruebas actuales (68)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -89,28 +92,78 @@ Componente `MedidorContrasena` (F08).
 | Con contraseña | Muestra el nivel y el lector de pantalla lo lee ("Seguridad de la contraseña: Fuerte") |
 | Mientras escribe | Pasa de "Débil" a "Buena" al cambiar la contraseña |
 
-### Pantalla de Registro: `src/features/auth/__tests__/registro-test.tsx` (6)
-Pantalla "Crea tu cuenta" (F08) de punta a punta.
+### Pantalla de Registro: `src/features/auth/__tests__/registro-test.tsx` (7)
+Pantalla "Crea tu cuenta" (F08, conectada a la API en F09) de punta a punta.
 | Prueba | Qué asegura |
 |---|---|
 | Enviar vacío | Muestra los 4 errores y no avanza |
 | Casilla inicial | Términos empieza sin marcar (consentimiento expreso) |
 | Sin aceptar Términos | No crea la cuenta aunque lo demás esté bien |
 | Medidor | Reacciona a la contraseña escrita |
-| Todo correcto | Pasa al onboarding (`/perfil`). Temporal hasta F09 |
+| Todo correcto | Crea la cuenta, guarda la sesión y pasa al onboarding (`/perfil`) |
+| Correo ya registrado | Avisa debajo del campo correo (no como aviso general) y no avanza |
 | Volver | La flecha regresa a la pantalla anterior |
 
-### Pantalla de Inicio de sesión: `src/features/auth/__tests__/iniciar-sesion-test.tsx` (3)
-Pantalla "Bienvenido de nuevo" (F07) de punta a punta.
+### Pantalla de Inicio de sesión: `src/features/auth/__tests__/iniciar-sesion-test.tsx` (5)
+Pantalla "Bienvenido de nuevo" (F07, conectada a la API en F09) de punta a punta.
 | Prueba | Qué asegura |
 |---|---|
-| Enviar vacío | Pide correo y contraseña y no entra |
-| Datos completos | Entra a Inicio (`/inicio`). Temporal hasta F09/F10 |
+| Enviar vacío | Pide correo y contraseña y no llama a la API |
+| Cuenta correcta | Con " Demo@Leggal.ai " (espacios y mayúsculas) guarda la sesión y entra a `/inicio` |
+| Contraseña incorrecta | Muestra el aviso "Correo o contraseña incorrectos." y no entra |
+| Reintento | El aviso desaparece al volver a intentar con la cuenta correcta |
 | Crear cuenta | El enlace lleva a `/registro` |
 
+### Cliente de la API: `src/services/api/__tests__/cliente-test.ts` (16)
+`crearClienteApi` (F09), con un transporte falso que registra cada petición.
+| Prueba | Qué asegura |
+|---|---|
+| Petición POST | Arma la URL, manda el cuerpo en JSON y las cabeceras fijas (`X-Dispositivo`) |
+| Token | Las rutas privadas llevan `Authorization`; las públicas no |
+| GET | No lleva cuerpo ni `Content-Type` |
+| Respuesta correcta | Devuelve los datos |
+| Respuesta vacía (204) | Devuelve `undefined` sin romperse |
+| Error con código | Se convierte en `ErrorApi` con código, campos y mensaje en español propio |
+| Código desconocido | Usa el mensaje del servidor |
+| Error 500 sin cuerpo | "El servidor tuvo un problema" |
+| Sin red | Código `SIN_CONEXION` |
+| Sin respuesta a tiempo | Corta la espera y da `TIEMPO_AGOTADO` |
+| Token vencido | Lo renueva una vez (sin mandar el token viejo), lo guarda y repite la petición |
+| Vencidos a la vez | Tres peticiones comparten una sola renovación |
+| Renovación rechazada | Cierra la sesión, da `SESION_EXPIRADA` y no repite la petición |
+| 401 después de renovar | No entra en un bucle (3 llamadas en total) |
+| Sin red al renovar | No cierra la sesión |
+| 401 en el login | No intenta renovar ("Correo o contraseña incorrectos.") |
+
+### API simulada: `src/services/api/__tests__/mock-test.ts` (9)
+`transporteSimulado` (F11). Debe comportarse como el backend.
+| Prueba | Qué asegura |
+|---|---|
+| Login demo | Devuelve usuario y tokens, nunca la contraseña |
+| Contraseña incorrecta | 401 `CREDENCIALES_INVALIDAS` |
+| Correo sin cuenta | Mismo error que la contraseña incorrecta (no revela qué correos existen) |
+| Registro | 201 y luego se puede iniciar sesión con esa cuenta |
+| Correo repetido | 409 `CORREO_EN_USO` señalando el campo correo |
+| reiniciarMock | Borra las cuentas creadas |
+| Renovar | Cambia el token de renovación por tokens nuevos |
+| Rotación | Cada token de renovación sirve una sola vez |
+| Ruta desconocida | 404 que dice qué ruta falta |
+
+### Errores en formularios: `src/services/api/__tests__/errores-formulario-test.ts` (5)
+`aplicarErrorApi` (F09).
+| Prueba | Qué asegura |
+|---|---|
+| Error con campo | Va debajo de ese campo y no hay aviso general |
+| Varios campos | Solo enfoca el primero |
+| Campo que no existe | Se ignora y pasa a aviso general |
+| Sin campos | Se devuelve como aviso general (por ejemplo, sin conexión) |
+| Error inesperado | Mensaje genérico |
+
 ## Comprobación de que las pruebas sirven
-Al crearlas (15 nov 2026) se quitó a propósito la regla de la casilla
-obligatoria: 3 pruebas fallaron, como debía ser. Luego se restauró.
+- 15 nov 2026 (F13): se quitó a propósito la regla de la casilla obligatoria y
+  3 pruebas fallaron. Luego se restauró.
+- 15 nov 2026 (F09): se hizo que el cliente intentara renovar el token también
+  en rutas públicas y 2 pruebas fallaron. Luego se restauró.
 
 ## Pendiente
 - Flujos completos en el teléfono con Maestro (según CLAUDE.md del frontend).
