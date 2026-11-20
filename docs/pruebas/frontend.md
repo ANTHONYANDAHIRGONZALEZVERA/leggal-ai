@@ -27,6 +27,8 @@ GitHub corre los tres (lint, tipos y pruebas) en cada PR con el workflow
   `<archivo>-test.ts` o `<archivo>-test.tsx`.
 - **Nunca dentro de `src/app/`**: Expo Router trataría el archivo como una
   pantalla. Las pruebas de pantallas van en `src/features/<área>/__tests__/`.
+- Ayudantes para pruebas (no son pruebas): `src/pruebas/`. `renderizar()` dibuja
+  una pantalla con los mismos proveedores que la app (TanStack Query).
 
 ## Qué se reemplaza en las pruebas (y por qué)
 | Qué | Por qué |
@@ -35,8 +37,10 @@ GitHub corre los tres (lint, tipos y pruebas) en cada PR con el workflow
 | `expo-router` (`router`, `Link`) | La navegación real necesita todo el árbol de rutas; basta comprobar a dónde intenta ir la pantalla. |
 | `react-native-safe-area-context` | Usa el mock oficial de la librería (márgenes del teléfono con valores fijos). |
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
+| `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
+| Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (35)
+## Pruebas actuales (135)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -89,28 +93,193 @@ Componente `MedidorContrasena` (F08).
 | Con contraseña | Muestra el nivel y el lector de pantalla lo lee ("Seguridad de la contraseña: Fuerte") |
 | Mientras escribe | Pasa de "Débil" a "Buena" al cambiar la contraseña |
 
-### Pantalla de Registro: `src/features/auth/__tests__/registro-test.tsx` (6)
-Pantalla "Crea tu cuenta" (F08) de punta a punta.
+### Pantalla de Registro: `src/features/auth/__tests__/registro-test.tsx` (7)
+Pantalla "Crea tu cuenta" (F08, conectada a la API en F09) de punta a punta.
 | Prueba | Qué asegura |
 |---|---|
 | Enviar vacío | Muestra los 4 errores y no avanza |
 | Casilla inicial | Términos empieza sin marcar (consentimiento expreso) |
 | Sin aceptar Términos | No crea la cuenta aunque lo demás esté bien |
 | Medidor | Reacciona a la contraseña escrita |
-| Todo correcto | Pasa al onboarding (`/perfil`). Temporal hasta F09 |
+| Todo correcto | Crea la cuenta y guarda la sesión con el onboarding pendiente |
+| Correo ya registrado | Avisa debajo del campo correo (no como aviso general) y no avanza |
 | Volver | La flecha regresa a la pantalla anterior |
 
-### Pantalla de Inicio de sesión: `src/features/auth/__tests__/iniciar-sesion-test.tsx` (3)
-Pantalla "Bienvenido de nuevo" (F07) de punta a punta.
+### Pantalla de Inicio de sesión: `src/features/auth/__tests__/iniciar-sesion-test.tsx` (5)
+Pantalla "Bienvenido de nuevo" (F07, conectada a la API en F09) de punta a punta.
+Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
+`navegacion-test`) lleva a donde corresponde.
 | Prueba | Qué asegura |
 |---|---|
-| Enviar vacío | Pide correo y contraseña y no entra |
-| Datos completos | Entra a Inicio (`/inicio`). Temporal hasta F09/F10 |
+| Enviar vacío | Pide correo y contraseña y no inicia sesión |
+| Cuenta correcta | Con " Demo@Leggal.ai " (espacios y mayúsculas) guarda la sesión con el onboarding hecho |
+| Contraseña incorrecta | Muestra el aviso "Correo o contraseña incorrectos." y no entra |
+| Reintento | El aviso desaparece al volver a intentar con la cuenta correcta |
 | Crear cuenta | El enlace lleva a `/registro` |
 
+### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (8)
+`app/_layout.tsx` y `app/index.tsx` reales (F10) con el enrutador de Expo Router
+(`renderRouter`); las pantallas son textos con su nombre.
+| Prueba | Qué asegura |
+|---|---|
+| Sin sesión | La app abre en el Splash |
+| Sesión guardada | Abre directo en Inicio, sin pasar por el Login |
+| Onboarding pendiente | Abre en el paso 1/5 |
+| Iniciar sesión | Desde el Login lleva sola a Inicio |
+| Cuenta nueva | Va al onboarding y, al terminarlo, a Inicio |
+| Cerrar sesión | Vuelve al Splash |
+| Enlace directo sin sesión | `/inicio` no deja entrar |
+| Login con sesión | El Login ya no está disponible |
+
+### Acceso rápido de desarrollo: `src/features/auth/__tests__/acceso-rapido-dev-test.tsx` (3)
+Botones del Login que solo existen en desarrollo con la API simulada.
+| Prueba | Qué asegura |
+|---|---|
+| Visible | Aparece con `__DEV__` y la API simulada |
+| Demo · Inicio | Entra con `demo@leggal.ai` (onboarding hecho) |
+| Cuenta nueva · Onboarding | Entra con `nuevo@leggal.ai` (onboarding pendiente, "Andrea Ruiz") |
+
+### Cerrar sesión: `src/features/auth/__tests__/cerrar-sesion-test.ts` (3)
+`cerrarSesion` (F10).
+| Prueba | Qué asegura |
+|---|---|
+| Cierre normal | Avisa al servidor con el token de renovación y borra la sesión |
+| Sin red | La sesión se cierra igual |
+| Sin sesión | No llama al servidor |
+
+### Sesión guardada: `src/services/__tests__/sesion-test.ts` (8)
+`useSesion` y `useAcceso` (F10).
+| Prueba | Qué asegura |
+|---|---|
+| Guardar | Al iniciar sesión, usuario y tokens quedan en el almacén cifrado |
+| Borrar | Al cerrar sesión se borran |
+| Recuperar | Al abrir la app se lee la sesión guardada |
+| Token nuevo | Al renovar se guarda el token nuevo |
+| Acceso invitado | Sin sesión es "invitado" |
+| Acceso onboarding | Con sesión y onboarding pendiente es "onboarding" |
+| Acceso app | Con sesión y onboarding hecho es "app" |
+| Terminar onboarding | Pasa a "app" sin perder la sesión |
+
+### Vencimiento del token: `src/services/api/__tests__/jwt-test.ts` (7)
+`leerVencimiento` y `vencePronto` (F10).
+| Prueba | Qué asegura |
+|---|---|
+| Leer exp | Pasa de segundos a milisegundos |
+| base64url | Entiende los "-" y "_" de los JWT reales |
+| Sin exp / no JWT | Devuelve null |
+| Menos de 1 min | Vence pronto |
+| Ya vencido | Vence pronto |
+| Más de 1 min | No vence pronto |
+| No se puede saber | Se usa tal cual |
+
+### Cliente de la API: `src/services/api/__tests__/cliente-test.ts` (19)
+`crearClienteApi` (F09), con un transporte falso que registra cada petición.
+| Prueba | Qué asegura |
+|---|---|
+| Petición POST | Arma la URL, manda el cuerpo en JSON y las cabeceras fijas (`X-Dispositivo`) |
+| Token | Las rutas privadas llevan `Authorization`; las públicas no |
+| GET | No lleva cuerpo ni `Content-Type` |
+| Respuesta correcta | Devuelve los datos |
+| Respuesta vacía (204) | Devuelve `undefined` sin romperse |
+| Error con código | Se convierte en `ErrorApi` con código, campos y mensaje en español propio |
+| Código desconocido | Usa el mensaje del servidor |
+| Error 500 sin cuerpo | "El servidor tuvo un problema" |
+| Sin red | Código `SIN_CONEXION` |
+| Sin respuesta a tiempo | Corta la espera y da `TIEMPO_AGOTADO` |
+| Token vencido | Lo renueva una vez (sin mandar el token viejo), lo guarda y repite la petición |
+| Vencidos a la vez | Tres peticiones comparten una sola renovación |
+| Renovación rechazada | Cierra la sesión, da `SESION_EXPIRADA` y no repite la petición |
+| 401 después de renovar | No entra en un bucle (3 llamadas en total) |
+| Sin red al renovar | No cierra la sesión |
+| 401 en el login | No intenta renovar ("Correo o contraseña incorrectos.") |
+| Vence en menos de 1 min (F10) | Lo renueva **antes** de la petición, sin esperar un 401 |
+| Le queda tiempo (F10) | No renueva |
+| Renovación anticipada rechazada (F10) | Cierra la sesión sin hacer la petición |
+
+### API simulada: `src/services/api/__tests__/mock-test.ts` (18)
+`transporteSimulado` (F11). Debe comportarse como el backend.
+| Prueba | Qué asegura |
+|---|---|
+| Login demo | Devuelve usuario (con onboarding hecho) y tokens, nunca la contraseña |
+| Token JWT | El de acceso trae `exp`, como los del backend |
+| Contraseña incorrecta | 401 `CREDENCIALES_INVALIDAS` |
+| Correo sin cuenta | Mismo error que la contraseña incorrecta (no revela qué correos existen) |
+| Registro | 201 con el onboarding pendiente, y luego se puede iniciar sesión con esa cuenta |
+| Correo repetido | 409 `CORREO_EN_USO` señalando el campo correo |
+| reiniciarMock | Borra las cuentas creadas |
+| Renovar | Cambia el token de renovación por tokens nuevos |
+| Rotación | Cada token de renovación sirve una sola vez |
+| Cerrar sesión | 204 y el token de renovación deja de servir |
+| Ruta desconocida | 404 que dice qué ruta falta |
+| Rutas de @usuario sin token o con token falso (F30) | 401: son privadas |
+| Disponible / tomado (F30) | `disponible: true` para uno libre y `false` para uno tomado |
+| Sugerencias por nombre (F30) | Armadas con el nombre escrito, sin tildes y sin los tomados |
+| Un solo nombre (F30) | También sugiere |
+| Sin repetidos (F30) | Nunca repite una sugerencia |
+| Reglas (F30) | Todas las sugerencias cumplen las reglas del @usuario |
+| Sin nombre (F30) | No sugiere nada |
+
+### Errores en formularios: `src/services/api/__tests__/errores-formulario-test.ts` (5)
+`aplicarErrorApi` (F09).
+| Prueba | Qué asegura |
+|---|---|
+| Error con campo | Va debajo de ese campo y no hay aviso general |
+| Varios campos | Solo enfoca el primero |
+| Campo que no existe | Se ignora y pasa a aviso general |
+| Sin campos | Se devuelve como aviso general (por ejemplo, sin conexión) |
+| Error inesperado | Mensaje genérico |
+
+### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (13)
+Pantalla "¿Cómo te llamamos?" (F30) contra la API simulada, con la cuenta de
+prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
+| Prueba | Qué asegura |
+|---|---|
+| Inicio | Los dos campos empiezan vacíos y sin sugerencias |
+| Sugerencias | Al escribir "Bruno Díaz" aparecen @bruno.diaz, @bdiaz.legal y @brunodiaz |
+| Cambio de nombre | Las sugerencias se rehacen con el nombre nuevo |
+| Tomados | No sugiere @andrea.ruiz porque está tomado |
+| Tocar sugerencia | Llena el @usuario y queda "Disponible" |
+| Escrito a mano y tomado | Avisa "Ya está en uso" |
+| Iniciales | Siguen al nombre que se escribe ("Bruno Díaz" → "BD") |
+| Continuar | Guarda el paso normalizado (`@Andrea.Legal` → `andrea.legal`) y pasa a `/area` |
+| Vacío | No avanza y pide los dos datos |
+| Continuar enseguida | Con un @usuario tomado, revisa de nuevo y no avanza |
+| Formato inválido | Muestra la regla ("No uses dos símbolos seguidos") y no avanza |
+| Volver desde 2/5 | Encuentra lo que ya había llenado |
+| Flecha del paso 1 | Cierra la sesión (volver = salir de la cuenta nueva) |
+
+### Reglas del @usuario: `src/features/onboarding/__tests__/usuario-test.ts` (7)
+`normalizarUsuario` y `esquemaUsuario` (F30). Las sugerencias las arma el servidor.
+| Prueba | Qué asegura |
+|---|---|
+| Normalizar | Quita "@", espacios y tildes; pasa a minúsculas |
+| Caracteres válidos | Letras, números, punto y guion bajo |
+| Forma guardada | Se guarda normalizado |
+| Largo | Entre 3 y 30 |
+| Inicio | Debe empezar con letra |
+| Otros símbolos | No se admiten ("-", "!") |
+| Símbolos seguidos o al final | No se admiten |
+
+### Texto: `src/utils/__tests__/texto-test.ts` (6)
+`quitarAcentos` e `iniciales` (F30).
+| Prueba | Qué asegura |
+|---|---|
+| Quitar acentos | Tildes, diéresis y ñ |
+| Sin acentos | Queda igual |
+| Iniciales | Primer nombre y último apellido ("María José López Vera" → "MV") |
+| Un nombre | Una letra |
+| Espacios de más | Se ignoran y sale en mayúsculas |
+| Vacío | Devuelve vacío |
+
 ## Comprobación de que las pruebas sirven
-Al crearlas (15 nov 2026) se quitó a propósito la regla de la casilla
-obligatoria: 3 pruebas fallaron, como debía ser. Luego se restauró.
+- 15 nov 2026 (F13): se quitó a propósito la regla de la casilla obligatoria y
+  3 pruebas fallaron. Luego se restauró.
+- 15 nov 2026 (F09): se hizo que el cliente intentara renovar el token también
+  en rutas públicas y 2 pruebas fallaron. Luego se restauró.
+- 15 nov 2026 (F10): se dejaron las pestañas sin protección y 2 pruebas de
+  navegación fallaron. Luego se restauró.
+- 15 nov 2026 (F30): se quitó la revisión del @usuario al tocar Continuar y
+  falló la prueba "Continuar enseguida". Luego se restauró.
 
 ## Pendiente
 - Flujos completos en el teléfono con Maestro (según CLAUDE.md del frontend).

@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -7,6 +7,7 @@ import { ScrollView, View, type TextInputInstance } from 'react-native';
 
 import { Anillo } from '@/components/anillo';
 import { Aparecer } from '@/components/aparecer';
+import { AvisoError } from '@/components/aviso-error';
 import { Boton } from '@/components/boton';
 import { CampoTexto } from '@/components/campo-texto';
 import { Esfera } from '@/components/esfera';
@@ -15,7 +16,10 @@ import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
 import { SeparadorTexto } from '@/components/separador-texto';
 import { Texto } from '@/components/texto';
 import { TituloDestacado } from '@/components/titulo-destacado';
+import { AccesoRapidoDev } from '@/features/auth/acceso-rapido-dev';
+import { iniciarSesion } from '@/features/auth/api';
 import { esquemaInicioSesion, type DatosInicioSesion } from '@/features/auth/esquemas';
+import { useEnvioSesion } from '@/features/auth/use-envio-sesion';
 import { gradients, MARGEN_PANTALLA, spacing, type } from '@/theme';
 
 const ALTO_ESCENA = 230;
@@ -26,17 +30,19 @@ export default function IniciarSesion() {
   const {
     control,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<DatosInicioSesion>({
     resolver: zodResolver(esquemaInicioSesion),
     defaultValues: { correo: '', contrasena: '' },
   });
 
-  // Temporal: sin API todavía, entra directo a Inicio para poder recorrer la
-  // app. En F09/F10 esto llama al backend y guarda la sesión.
-  const entrar = handleSubmit(async () => {
-    router.replace('/inicio');
+  const { enviar, errorGeneral } = useEnvioSesion({
+    peticion: iniciarSesion,
+    setError,
+    campos: ['correo', 'contrasena'],
   });
+  const entrar = handleSubmit(enviar);
 
   return (
     <PantallaConEsfera>
@@ -117,6 +123,7 @@ export default function IniciarSesion() {
           <View style={{ flex: 1, minHeight: spacing.xxl }} />
 
           <View style={{ alignItems: 'center', gap: 14, paddingBottom: spacing.xl }}>
+            <AvisoError mensaje={errorGeneral} />
             <Boton
               titulo="Iniciar sesión"
               icono="flecha"
@@ -130,6 +137,7 @@ export default function IniciarSesion() {
                 Crear cuenta
               </Link>
             </Texto>
+            <AccesoRapidoDev />
           </View>
         </View>
       </ScrollView>

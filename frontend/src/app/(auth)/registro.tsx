@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, router } from 'expo-router';
+import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { ScrollView, View, type TextInputInstance } from 'react-native';
 
 import { Aparecer } from '@/components/aparecer';
+import { AvisoError } from '@/components/aviso-error';
 import { Boton } from '@/components/boton';
 import { BotonVolver } from '@/components/boton-volver';
 import { CampoTexto } from '@/components/campo-texto';
@@ -17,7 +18,9 @@ import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
 import { SeparadorTexto } from '@/components/separador-texto';
 import { Texto } from '@/components/texto';
 import { TituloDestacado } from '@/components/titulo-destacado';
+import { registrarse } from '@/features/auth/api';
 import { esquemaRegistro, MINIMO_CONTRASENA, type DatosRegistro } from '@/features/auth/esquemas';
+import { useEnvioSesion } from '@/features/auth/use-envio-sesion';
 import { colors, MARGEN_PANTALLA, spacing, type } from '@/theme';
 
 // "Crea tu cuenta" del diseño. Facebook queda fuera en la beta.
@@ -27,17 +30,21 @@ export default function Registro() {
   const {
     control,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<DatosRegistro>({
     resolver: zodResolver(esquemaRegistro),
     defaultValues: { nombre: '', correo: '', contrasena: '', aceptaTerminos: false },
   });
 
-  // Temporal: sin API todavía, pasa directo al onboarding. En F09 esto crea
-  // la cuenta en el backend (y luego viene "Verifica tu correo").
-  const crear = handleSubmit(async () => {
-    router.replace('/perfil');
+  // Crea la cuenta; la navegación lleva sola al onboarding porque una cuenta
+  // nueva no lo tiene completo. "Revisa tu correo" (F23) irá en medio.
+  const { enviar, errorGeneral } = useEnvioSesion({
+    peticion: registrarse,
+    setError,
+    campos: ['nombre', 'correo', 'contrasena'],
   });
+  const crear = handleSubmit(enviar);
 
   return (
     <PantallaConEsfera
@@ -164,6 +171,7 @@ export default function Registro() {
           <View style={{ flex: 1, minHeight: spacing.xxl }} />
 
           <View style={{ alignItems: 'center', gap: 14, paddingBottom: spacing.xl }}>
+            <AvisoError mensaje={errorGeneral} />
             <Boton
               titulo="Crear cuenta"
               variante="morado"
