@@ -1,3 +1,5 @@
+import { esquemaUsuario } from '@/features/onboarding/usuario';
+
 import { leerVencimiento } from '../jwt';
 import { reiniciarMock, transporteSimulado, USUARIO_DEMO, VIDA_TOKEN_MS } from '../mock';
 
@@ -122,4 +124,60 @@ test('una ruta que la API simulada no conoce responde 404 explicando cuál falta
   const r = await post('/casos', {});
 
   expect(r).toMatchObject({ estado: 404, datos: { codigo: 'NO_ENCONTRADO', mensaje: expect.stringContaining('POST /casos') } });
+});
+
+describe('API simulada: @usuario (F30)', () => {
+  /** Inicia sesión con la cuenta demo y devuelve su token de acceso. */
+  async function tokenDemo() {
+    const { datos } = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+    return datos.tokens.acceso as string;
+  }
+
+  async function get(ruta: string, token?: string) {
+    const r = await transporteSimulado(ruta, { method: 'GET', headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    return { estado: r.status, datos: JSON.parse(await r.text()) };
+  }
+
+  const disponible = (usuario: string, token?: string) => get(`/usuarios/disponible?usuario=${encodeURIComponent(usuario)}`, token);
+  const sugerencias = async (nombre: string) =>
+    (await get(`/usuarios/sugerencias?nombre=${encodeURIComponent(nombre)}`, await tokenDemo())).datos.sugerencias as string[];
+
+  test('son rutas privadas: sin token o con un token falso responden 401', async () => {
+    expect((await disponible('ana.perez')).estado).toBe(401);
+    expect((await disponible('ana.perez', 'token-inventado')).estado).toBe(401);
+    expect((await get('/usuarios/sugerencias?nombre=Ana')).estado).toBe(401);
+  });
+
+  test('un @usuario libre responde disponible y uno tomado no', async () => {
+    const token = await tokenDemo();
+
+    expect((await disponible('usuario.nuevo', token)).datos).toEqual({ usuario: 'usuario.nuevo', disponible: true });
+    expect((await disponible('andrea.ruiz', token)).datos.disponible).toBe(false);
+  });
+
+  test('sugiere a partir del nombre escrito, sin tildes y sin los tomados', async () => {
+    // andrea.ruiz está tomado, así que no aparece.
+    expect(await sugerencias('Andréa Ruíz')).toEqual(['aruiz.legal', 'andrearuiz', 'ruiz.andrea']);
+  });
+
+  test('con un solo nombre también sugiere', async () => {
+    expect(await sugerencias('Bruno')).toEqual(['bruno', 'bruno.legal', 'bruno.abogado']);
+  });
+
+  test('nunca repite una sugerencia', async () => {
+    // "Ana Ana" haría ana.ana dos veces; solo debe aparecer una.
+    const lista = await sugerencias('Ana Ana');
+
+    expect(new Set(lista).size).toBe(lista.length);
+  });
+
+  test('todas las sugerencias cumplen las reglas del @usuario', async () => {
+    for (const nombre of ['María José Pérez', "D'Angelo O'Brien", 'Ñandú', 'Bartolomeo Maximiliano Fernandezdelgado']) {
+      for (const s of await sugerencias(nombre)) expect(esquemaUsuario.safeParse(s).success).toBe(true);
+    }
+  });
+
+  test('sin nombre no sugiere nada', async () => {
+    expect(await sugerencias('   ')).toEqual([]);
+  });
 });

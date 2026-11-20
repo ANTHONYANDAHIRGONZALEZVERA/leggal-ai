@@ -1,4 +1,4 @@
-import { useId, useState, type Ref } from 'react';
+import { useId, useState, type ReactNode, type Ref } from 'react';
 import { TextInput, View, type TextInputInstance, type TextInputProps } from 'react-native';
 
 import { colors, fontFamily, radius, shadows, sizes, spacing } from '@/theme';
@@ -12,6 +12,10 @@ type Props = Omit<TextInputProps, 'style'> & {
   error?: string;
   /** Para pasar el foco al siguiente campo con la tecla "siguiente". */
   ref?: Ref<TextInputInstance>;
+  /** Texto fijo antes de lo escrito, por ejemplo "@" en el nombre de usuario. */
+  prefijo?: string;
+  /** Indicador a la derecha dentro del campo (por ejemplo, un check de disponible). */
+  derecha?: ReactNode;
 };
 
 // Estilo fijo: no cambia con el foco, así Android conserva el relleno.
@@ -25,7 +29,7 @@ const estiloEntrada = {
 
 // Campo con etiqueta arriba, como en Login y Registro. Al enfocarlo el borde
 // pasa a morado con un halo suave; con error, borde y mensaje en rojo.
-export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, secureTextEntry, ...props }: Props) {
+export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, secureTextEntry, prefijo, derecha, ...props }: Props) {
   const [enfocado, setEnfocado] = useState(false);
   // Los campos de contraseña llevan el "ojito" para mostrar u ocultar lo escrito.
   const [visible, setVisible] = useState(false);
@@ -53,6 +57,11 @@ export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, secureTextEn
           flexDirection: 'row',
           alignItems: 'center',
         }}>
+        {prefijo && (
+          <Texto variante="cuerpo" style={{ marginLeft: spacing.md, fontFamily: fontFamily.bold, color: colors.textoSecundario }}>
+            {prefijo}
+          </Texto>
+        )}
         <TextInput
           ref={ref}
           accessibilityLabelledBy={id}
@@ -68,7 +77,7 @@ export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, secureTextEn
             setEnfocado(false);
             onBlur?.(e);
           }}
-          style={estiloEntrada}
+          style={prefijo ? [estiloEntrada, { paddingLeft: spacing.xs }] : estiloEntrada}
           secureTextEntry={secureTextEntry && !visible}
           {...props}
         />
@@ -80,6 +89,7 @@ export function CampoTexto({ etiqueta, error, onFocus, onBlur, ref, secureTextEn
             <Icono nombre={visible ? 'ojo' : 'ojoCerrado'} color={colors.textoSecundario} />
           </Presionable>
         )}
+        {derecha && <View style={{ marginRight: spacing.sm }}>{derecha}</View>}
       </View>
       {error && (
         <Texto variante="nota" style={{ color: colors.error }} accessibilityLiveRegion="polite">
