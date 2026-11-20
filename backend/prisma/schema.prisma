@@ -186,17 +186,17 @@ model Usuario {
 // Datos profesionales del onboarding (pasos 2/5, 3/5 y 5/5). Son de la persona,
 // no de la empresa: "Estudiante" u "Otro" no son roles dentro de una empresa.
 model Perfil {
-  usuarioId            String          @id @map("usuario_id") @db.Uuid
-  rolProfesional       RolProfesional? @map("rol_profesional")
-  materias             String[]        @default([])
-  matricula            String?         @db.VarChar(40) // matrícula profesional, opcional
-  modoTrabajo          ModoTrabajo?    @map("modo_trabajo")
-  usos                 String[]        @default([]) // "¿Para qué usarás Leggal AI?"
-  canalPreferido       CanalPreferido? @map("canal_preferido")
-  // Los dos interruptores del paso 5/5: avisos en el teléfono y por correo.
-  notificacionesPush   Boolean         @default(true) @map("notificaciones_push")
-  notificacionesCorreo Boolean         @default(true) @map("notificaciones_correo")
-  actualizadoEn        DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  usuarioId       String          @id @map("usuario_id") @db.Uuid
+  rolProfesional  RolProfesional? @map("rol_profesional")
+  materias        String[]        @default([])
+  matricula       String?         @db.VarChar(40) // matrícula profesional, opcional
+  modoTrabajo     ModoTrabajo?    @map("modo_trabajo")
+  usos            String[]        @default([]) // "¿Para qué usarás Leggal AI?"
+  canalPreferido  CanalPreferido? @map("canal_preferido")
+  // Los dos interruptores del paso 5/5 (diseño Preferencias).
+  notificarPlazos Boolean         @default(true) @map("notificar_plazos") // "Plazos y audiencias"
+  resumenDiario   Boolean         @default(false) @map("resumen_diario") // "Resumen diario"
+  actualizadoEn   DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
