@@ -13,8 +13,11 @@
 //   termine asignado a una membresía de la empresa B.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  // Dentro de src/ para que el compilador de Nest lo incluya en dist/, y en
+  // CommonJS porque así compila el backend. No se sube: se crea con prisma generate.
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
