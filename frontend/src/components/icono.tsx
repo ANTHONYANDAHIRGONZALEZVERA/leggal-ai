@@ -8,6 +8,7 @@ const trazos = {
   flecha: { d: 'M5 12h14M13 6l6 6-6 6', grosor: 2.2 },
   volver: { d: 'M15 6l-6 6 6 6', grosor: 2 },
   check: { d: 'M5 12l5 5L20 7', grosor: 3 },
+  camara: { d: 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z', grosor: 2 },
   // Ojo abierto (contraseña a la vista) y tachado (contraseña oculta).
   ojo: { d: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', grosor: 1.8 },
   ojoCerrado: {

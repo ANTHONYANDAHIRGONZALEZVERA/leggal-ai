@@ -1,4 +1,7 @@
+import { quitarAcentos } from '@/utils/texto';
+
 import type { RespuestaTransporte, Transporte } from './cliente';
+import { leerCarga, leerVencimiento } from './jwt';
 
 // API simulada (F11): responde dentro de la app como lo hará el backend, para
 // avanzar sin servidor. Se activa con EXPO_PUBLIC_API_MOCK=true o cuando no hay
@@ -9,6 +12,13 @@ type Cuerpo = Record<string, string>;
 
 /** Cuenta lista para probar sin registrarse (ya hizo el onboarding). */
 export const USUARIO_DEMO = { nombre: 'Usuario Demo', correo: 'demo@leggal.ai', contrasena: 'Leggal2026!' } as const;
+
+/**
+ * Cuenta para revisar el onboarding sin registrarse: cada vez que entra, lo
+ * tiene pendiente. Se llama como en el diseño ("Andrea Ruiz") para ver el caso
+ * de @usuario tomado.
+ */
+export const USUARIO_NUEVO = { nombre: 'Andrea Ruiz', correo: 'nuevo@leggal.ai', contrasena: 'Leggal2026!' } as const;
 
 // Pausa que imita la red real, para ver los estados de carga. En Jest es 0.
 const LATENCIA_MS = process.env.NODE_ENV === 'test' ? 0 : 600;
@@ -21,11 +31,19 @@ let usuarios = new Map<string, UsuarioSimulado>();
 let renovaciones = new Map<string, string>();
 let contador = 0;
 
-/** Vuelve al estado inicial (solo el usuario demo). Lo usan las pruebas. */
+// @usuarios ya tomados por otras personas (además de los reservados del sistema).
+const USUARIOS_TOMADOS = ['admin', 'soporte', 'leggal', 'accons', 'usuario.demo', 'andrea.ruiz'];
+let usuariosTomados = new Set<string>();
+
+/** Vuelve al estado inicial (solo las cuentas de prueba). Lo usan las pruebas. */
 export function reiniciarMock() {
-  usuarios = new Map([[USUARIO_DEMO.correo, { id: 'usr-demo', ...USUARIO_DEMO, onboardingCompleto: true }]]);
+  usuarios = new Map([
+    [USUARIO_DEMO.correo, { id: 'usr-demo', ...USUARIO_DEMO, onboardingCompleto: true }],
+    [USUARIO_NUEVO.correo, { id: 'usr-nuevo', ...USUARIO_NUEVO, onboardingCompleto: false }],
+  ]);
   renovaciones = new Map();
   contador = 0;
+  usuariosTomados = new Set(USUARIOS_TOMADOS);
 }
 reiniciarMock();
 
@@ -57,7 +75,48 @@ function sesionDe({ id, nombre, correo, onboardingCompleto }: UsuarioSimulado) {
   return { usuario: { id, nombre, correo, onboardingCompleto }, tokens: emitirTokens(correo) };
 }
 
-const rutas: Record<string, (cuerpo: Cuerpo) => RespuestaTransporte> = {
+/** Dueño del token de acceso, o null si falta, no es válido o ya venció. */
+function duenoDelToken(cabeceras: Record<string, string>) {
+  const token = cabeceras.Authorization?.replace(/^Bearer /, '') ?? '';
+  const correo = leerCarga(token)?.sub;
+  const vence = leerVencimiento(token);
+  if (typeof correo !== 'string' || vence === null || vence < Date.now()) return null;
+  return usuarios.get(correo) ?? null;
+}
+
+/**
+ * Hasta 3 @usuarios libres, distintos entre sí, armados con el nombre que la
+ * persona escribe: "Andrea Ruiz" → aruiz.legal, andrearuiz, ruiz.andrea…
+ * Siempre cumplen las reglas del @usuario (empiezan con letra, máximo 30).
+ */
+function sugerenciasPara(nombre: string) {
+  const palabras = quitarAcentos(nombre)
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+  if (palabras.length === 0) return [];
+  const n = palabras[0];
+  const a = palabras.length > 1 ? palabras[palabras.length - 1] : '';
+  const candidatos = a
+    ? [`${n}.${a}`, `${n[0]}${a}.legal`, `${n}${a}`, `${a}.${n}`, `${n}.${a[0]}`, `${n}_${a}`, `${n}.${a}.legal`]
+    : [n, `${n}.legal`, `${n}.abogado`, `${n}_legal`, `${n}.juridico`];
+  // Set: sin repetidos. Tomados: fuera. Así ninguna sugerencia falla al elegirla.
+  return [...new Set(candidatos.map((c) => c.slice(0, 30)))]
+    .filter((c) => c.length >= 3 && !usuariosTomados.has(c))
+    .slice(0, 3);
+}
+
+type Manejador = (cuerpo: Cuerpo) => RespuestaTransporte;
+/** Las rutas privadas reciben además a la persona dueña del token. */
+type ManejadorPrivado = (cuerpo: Cuerpo, persona: UsuarioSimulado) => RespuestaTransporte;
+
+const rutasPrivadas: Record<string, ManejadorPrivado> = {
+  'GET /usuarios/disponible': ({ usuario }) => responder(200, { usuario, disponible: !usuariosTomados.has(usuario) }),
+  'GET /usuarios/sugerencias': ({ nombre = '' }) => responder(200, { sugerencias: sugerenciasPara(nombre) }),
+};
+
+const rutas: Record<string, Manejador> = {
   'POST /auth/login': ({ correo, contrasena }) => {
     const usuario = usuarios.get(correo);
     // Mismo error si el correo no existe o la contraseña falla: así no se
@@ -97,13 +156,33 @@ const rutas: Record<string, (cuerpo: Cuerpo) => RespuestaTransporte> = {
   },
 };
 
-export const transporteSimulado: Transporte = async (url, { method, body }) => {
+export const transporteSimulado: Transporte = async (url, { method, headers, body }) => {
   await new Promise((resolver) => setTimeout(resolver, LATENCIA_MS));
-  // Solo importa la ruta: se quita el dominio (si lo hay) y la consulta.
-  const ruta = url.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
-  const manejar = rutas[`${method} ${ruta}`];
-  if (!manejar) {
-    return responder(404, { codigo: 'NO_ENCONTRADO', mensaje: `La API simulada no tiene ${method} ${ruta}.` });
+  // Se quita el dominio (si lo hay); la consulta (?a=1) se suma al cuerpo.
+  const [ruta, consulta = ''] = url.replace(/^https?:\/\/[^/]+/, '').split('?');
+  const cuerpo: Cuerpo = { ...leerConsulta(consulta), ...(body ? (JSON.parse(body) as Cuerpo) : {}) };
+  const clave = `${method} ${ruta}`;
+
+  const privada = rutasPrivadas[clave];
+  if (privada) {
+    const persona = duenoDelToken(headers);
+    if (!persona) return responder(401, { codigo: 'TOKEN_INVALIDO', mensaje: 'Inicia sesión de nuevo.' });
+    return privada(cuerpo, persona);
   }
-  return manejar(body ? (JSON.parse(body) as Cuerpo) : {});
+
+  const manejar = rutas[clave];
+  if (!manejar) {
+    return responder(404, { codigo: 'NO_ENCONTRADO', mensaje: `La API simulada no tiene ${clave}.` });
+  }
+  return manejar(cuerpo);
 };
+
+/** "usuario=ana.ruiz&x=1" → { usuario: 'ana.ruiz', x: '1' }. */
+function leerConsulta(consulta: string): Cuerpo {
+  return Object.fromEntries(
+    consulta
+      .split('&')
+      .filter(Boolean)
+      .map((par) => par.split('=').map((parte) => decodeURIComponent(parte.replace(/\+/g, ' ')))),
+  );
+}

@@ -16,6 +16,7 @@ import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
 import { SeparadorTexto } from '@/components/separador-texto';
 import { Texto } from '@/components/texto';
 import { TituloDestacado } from '@/components/titulo-destacado';
+import { AccesoRapidoDev } from '@/features/auth/acceso-rapido-dev';
 import { iniciarSesion } from '@/features/auth/api';
 import { esquemaInicioSesion, type DatosInicioSesion } from '@/features/auth/esquemas';
 import { useEnvioSesion } from '@/features/auth/use-envio-sesion';
@@ -136,6 +137,7 @@ export default function IniciarSesion() {
                 Crear cuenta
               </Link>
             </Texto>
+            <AccesoRapidoDev />
           </View>
         </View>
       </ScrollView>

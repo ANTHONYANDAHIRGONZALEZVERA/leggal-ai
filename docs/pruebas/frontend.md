@@ -40,7 +40,7 @@ GitHub corre los tres (lint, tipos y pruebas) en cada PR con el workflow
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (99)
+## Pruebas actuales (135)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -131,6 +131,14 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Enlace directo sin sesión | `/inicio` no deja entrar |
 | Login con sesión | El Login ya no está disponible |
 
+### Acceso rápido de desarrollo: `src/features/auth/__tests__/acceso-rapido-dev-test.tsx` (3)
+Botones del Login que solo existen en desarrollo con la API simulada.
+| Prueba | Qué asegura |
+|---|---|
+| Visible | Aparece con `__DEV__` y la API simulada |
+| Demo · Inicio | Entra con `demo@leggal.ai` (onboarding hecho) |
+| Cuenta nueva · Onboarding | Entra con `nuevo@leggal.ai` (onboarding pendiente, "Andrea Ruiz") |
+
 ### Cerrar sesión: `src/features/auth/__tests__/cerrar-sesion-test.ts` (3)
 `cerrarSesion` (F10).
 | Prueba | Qué asegura |
@@ -188,7 +196,7 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Le queda tiempo (F10) | No renueva |
 | Renovación anticipada rechazada (F10) | Cierra la sesión sin hacer la petición |
 
-### API simulada: `src/services/api/__tests__/mock-test.ts` (11)
+### API simulada: `src/services/api/__tests__/mock-test.ts` (18)
 `transporteSimulado` (F11). Debe comportarse como el backend.
 | Prueba | Qué asegura |
 |---|---|
@@ -203,6 +211,13 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Rotación | Cada token de renovación sirve una sola vez |
 | Cerrar sesión | 204 y el token de renovación deja de servir |
 | Ruta desconocida | 404 que dice qué ruta falta |
+| Rutas de @usuario sin token o con token falso (F30) | 401: son privadas |
+| Disponible / tomado (F30) | `disponible: true` para uno libre y `false` para uno tomado |
+| Sugerencias por nombre (F30) | Armadas con el nombre escrito, sin tildes y sin los tomados |
+| Un solo nombre (F30) | También sugiere |
+| Sin repetidos (F30) | Nunca repite una sugerencia |
+| Reglas (F30) | Todas las sugerencias cumplen las reglas del @usuario |
+| Sin nombre (F30) | No sugiere nada |
 
 ### Errores en formularios: `src/services/api/__tests__/errores-formulario-test.ts` (5)
 `aplicarErrorApi` (F09).
@@ -214,6 +229,48 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Sin campos | Se devuelve como aviso general (por ejemplo, sin conexión) |
 | Error inesperado | Mensaje genérico |
 
+### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (13)
+Pantalla "¿Cómo te llamamos?" (F30) contra la API simulada, con la cuenta de
+prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
+| Prueba | Qué asegura |
+|---|---|
+| Inicio | Los dos campos empiezan vacíos y sin sugerencias |
+| Sugerencias | Al escribir "Bruno Díaz" aparecen @bruno.diaz, @bdiaz.legal y @brunodiaz |
+| Cambio de nombre | Las sugerencias se rehacen con el nombre nuevo |
+| Tomados | No sugiere @andrea.ruiz porque está tomado |
+| Tocar sugerencia | Llena el @usuario y queda "Disponible" |
+| Escrito a mano y tomado | Avisa "Ya está en uso" |
+| Iniciales | Siguen al nombre que se escribe ("Bruno Díaz" → "BD") |
+| Continuar | Guarda el paso normalizado (`@Andrea.Legal` → `andrea.legal`) y pasa a `/area` |
+| Vacío | No avanza y pide los dos datos |
+| Continuar enseguida | Con un @usuario tomado, revisa de nuevo y no avanza |
+| Formato inválido | Muestra la regla ("No uses dos símbolos seguidos") y no avanza |
+| Volver desde 2/5 | Encuentra lo que ya había llenado |
+| Flecha del paso 1 | Cierra la sesión (volver = salir de la cuenta nueva) |
+
+### Reglas del @usuario: `src/features/onboarding/__tests__/usuario-test.ts` (7)
+`normalizarUsuario` y `esquemaUsuario` (F30). Las sugerencias las arma el servidor.
+| Prueba | Qué asegura |
+|---|---|
+| Normalizar | Quita "@", espacios y tildes; pasa a minúsculas |
+| Caracteres válidos | Letras, números, punto y guion bajo |
+| Forma guardada | Se guarda normalizado |
+| Largo | Entre 3 y 30 |
+| Inicio | Debe empezar con letra |
+| Otros símbolos | No se admiten ("-", "!") |
+| Símbolos seguidos o al final | No se admiten |
+
+### Texto: `src/utils/__tests__/texto-test.ts` (6)
+`quitarAcentos` e `iniciales` (F30).
+| Prueba | Qué asegura |
+|---|---|
+| Quitar acentos | Tildes, diéresis y ñ |
+| Sin acentos | Queda igual |
+| Iniciales | Primer nombre y último apellido ("María José López Vera" → "MV") |
+| Un nombre | Una letra |
+| Espacios de más | Se ignoran y sale en mayúsculas |
+| Vacío | Devuelve vacío |
+
 ## Comprobación de que las pruebas sirven
 - 15 nov 2026 (F13): se quitó a propósito la regla de la casilla obligatoria y
   3 pruebas fallaron. Luego se restauró.
@@ -221,6 +278,8 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
   en rutas públicas y 2 pruebas fallaron. Luego se restauró.
 - 15 nov 2026 (F10): se dejaron las pestañas sin protección y 2 pruebas de
   navegación fallaron. Luego se restauró.
+- 15 nov 2026 (F30): se quitó la revisión del @usuario al tocar Continuar y
+  falló la prueba "Continuar enseguida". Luego se restauró.
 
 ## Pendiente
 - Flujos completos en el teléfono con Maestro (según CLAUDE.md del frontend).
