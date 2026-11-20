@@ -10,7 +10,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      # El puerto del host es configurable porque algunas PC ya tienen un
+      # PostgreSQL instalado en Windows ocupando el 5432.
+      - "${POSTGRES_PUERTO:-5432}:5432"
     volumes:
       - leggal_pgdata:/var/lib/postgresql/data
     # "sano" solo cuando acepta conexiones; así nadie migra contra una base

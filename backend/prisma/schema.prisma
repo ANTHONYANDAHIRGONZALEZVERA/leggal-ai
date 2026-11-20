@@ -1,7 +1,16 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Modelo de datos de Leggal AI, semanas 1 y 2 (B02).
+//
+// Convenciones:
+// - Tablas y columnas en español y snake_case en PostgreSQL (@@map / @map);
+//   en el código de Prisma los mismos nombres en camelCase.
+// - Ids UUID v4 generados por PostgreSQL (gen_random_uuid), para que también
+//   funcionen en el seed y en el SQL escrito a mano (RLS, B36).
+// - Fechas con zona horaria (timestamptz) y en UTC.
+// - tenant_id solo en las tablas que pertenecen a una empresa. Las demás
+//   pertenecen a una persona o son catálogos; el porqué está en CLAUDE.md.
+// - En las tablas con tenant_id, las referencias entre ellas usan una llave
+//   compuesta (tenant_id, id): PostgreSQL impide así que un rol de la empresa A
+//   termine asignado a una membresía de la empresa B.
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +19,394 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Tipos
+// ---------------------------------------------------------------------------
+
+enum TipoEmpresa {
+  empresa
+  personal // espacio privado de una sola persona; así todo sigue con tenant_id
+
+  @@map("tipo_empresa")
+}
+
+enum EstadoUsuario {
+  activo
+  suspendido
+  eliminado
+
+  @@map("estado_usuario")
+}
+
+enum RolProfesional {
+  abogado
+  asistente_legal
+  contador
+  gerente
+  estudiante
+  otro
+
+  @@map("rol_profesional")
+}
+
+enum ModoTrabajo {
+  personal
+  colaborativo
+
+  @@map("modo_trabajo")
+}
+
+enum CanalPreferido {
+  texto
+  voz
+  ambos
+
+  @@map("canal_preferido")
+}
+
+enum DocumentoLegal {
+  terminos
+  privacidad
+
+  @@map("documento_legal")
+}
+
+enum ProveedorExterno {
+  google
+  facebook
+
+  @@map("proveedor_externo")
+}
+
+enum TipoCodigo {
+  verificar_correo
+  recuperar_contrasena
+
+  @@map("tipo_codigo")
+}
+
+enum Dispositivo {
+  android
+  ios
+  web
+  desconocido
+
+  @@map("dispositivo")
+}
+
+enum NivelPermiso {
+  ninguno
+  ver
+  editar
+
+  @@map("nivel_permiso")
+}
+
+enum EstadoMembresia {
+  en_espera
+  activa
+  rechazada
+  suspendida
+
+  @@map("estado_membresia")
+}
+
+enum OrigenMembresia {
+  creador
+  codigo
+  dominio // unión automática por dominio verificado: fase posterior
+
+  @@map("origen_membresia")
+}
+
+// ---------------------------------------------------------------------------
+// Empresa (el tenant). Su id es el tenant_id de las demás tablas.
+// ---------------------------------------------------------------------------
+
+model Empresa {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre        String      @db.VarChar(160) // nombre comercial o razón social
+  ruc           String?     @unique @db.VarChar(13) // nulo en el espacio personal
+  tipo          TipoEmpresa @default(empresa)
+  plan          String      @default("beta") @db.VarChar(40)
+  // El chatbot empieza apagado; solo un administrador lo activa.
+  iaHabilitada  Boolean     @default(false) @map("ia_habilitada")
+  creadoEn      DateTime    @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime    @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  roles                     Rol[]
+  rolPermisos               RolPermiso[]
+  membresias                Membresia[]
+  invitaciones              Invitacion[]
+  auditoria                 Auditoria[]
+  sesiones                  Sesion[]
+  usuariosConEstaComoUltima Usuario[]    @relation("UltimaEmpresa")
+
+  @@map("empresas")
+}
+
+// ---------------------------------------------------------------------------
+// Tablas de la persona: sin tenant_id, porque una persona puede estar en
+// varias empresas con la misma cuenta.
+// ---------------------------------------------------------------------------
+
+model Usuario {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  correo               String        @unique @db.VarChar(254) // siempre recortado y en minúsculas
+  // Nulo si la persona solo entra con Google (o Facebook más adelante).
+  hashContrasena       String?       @map("hash_contrasena")
+  nombre               String        @db.VarChar(80) // nombres y apellidos, como en "Crea tu cuenta"
+  nombreVisible        String?       @map("nombre_visible") @db.VarChar(80)
+  nombreUsuario        String?       @unique @map("nombre_usuario") @db.VarChar(30) // en minúsculas
+  // Fecha en lugar de booleano: sirve también como evidencia de cuándo se verificó.
+  correoVerificadoEn   DateTime?     @map("correo_verificado_en") @db.Timestamptz(3)
+  onboardingCompletoEn DateTime?     @map("onboarding_completo_en") @db.Timestamptz(3)
+  estado               EstadoUsuario @default(activo)
+  // Empresa que se recupera al iniciar sesión (contrato B03, login).
+  ultimaEmpresaId      String?       @map("ultima_empresa_id") @db.Uuid
+  creadoEn             DateTime      @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn        DateTime      @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  ultimaEmpresa       Empresa?             @relation("UltimaEmpresa", fields: [ultimaEmpresaId], references: [id], onDelete: SetNull)
+  perfil              Perfil?
+  aceptacionesLegales AceptacionLegal[]
+  identidadesExternas IdentidadExterna[]
+  sesiones            Sesion[]
+  codigosVerificacion CodigoVerificacion[]
+  membresias          Membresia[]          @relation("MiembroDe")
+  membresiasAprobadas Membresia[]          @relation("AprobadaPor")
+  invitacionesCreadas Invitacion[]
+  acciones            Auditoria[]
+
+  @@map("usuarios")
+}
+
+// Datos profesionales del onboarding (pasos 2/5, 3/5 y 5/5). Son de la persona,
+// no de la empresa: "Estudiante" u "Otro" no son roles dentro de una empresa.
+model Perfil {
+  usuarioId       String          @id @map("usuario_id") @db.Uuid
+  rolProfesional  RolProfesional? @map("rol_profesional")
+  materias        String[]        @default([])
+  matricula       String?         @db.VarChar(40) // matrícula profesional, opcional
+  modoTrabajo     ModoTrabajo?    @map("modo_trabajo")
+  usos            String[]        @default([]) // "¿Para qué usarás Leggal AI?"
+  canalPreferido  CanalPreferido? @map("canal_preferido")
+  // Los dos interruptores del paso 5/5 (diseño Preferencias).
+  notificarPlazos Boolean         @default(true) @map("notificar_plazos") // "Plazos y audiencias"
+  resumenDiario   Boolean         @default(false) @map("resumen_diario") // "Resumen diario"
+  actualizadoEn   DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("perfiles")
+}
+
+// Prueba de qué versión aceptó cada persona y cuándo (protección de datos).
+// Si cambia la versión vigente, se pide aceptar de nuevo y queda otra fila.
+model AceptacionLegal {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId  String         @map("usuario_id") @db.Uuid
+  documento  DocumentoLegal
+  version    String         @db.VarChar(20)
+  ip         String?        @db.Inet
+  aceptadoEn DateTime       @default(now()) @map("aceptado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, documento, version])
+  @@map("aceptaciones_legales")
+}
+
+// Cuentas de Google o Facebook vinculadas a la persona.
+model IdentidadExterna {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId   String           @map("usuario_id") @db.Uuid
+  proveedor   ProveedorExterno
+  idProveedor String           @map("id_proveedor") @db.VarChar(255) // "sub" de Google
+  correo      String?          @db.VarChar(254) // Facebook no siempre lo entrega
+  creadoEn    DateTime         @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([proveedor, idProveedor])
+  @@index([usuarioId])
+  @@map("identidades_externas")
+}
+
+// Una fila por cada refresh token emitido. Todas las filas de un mismo inicio
+// de sesión comparten familia_id, que es el "sid" del JWT: así el sid no cambia
+// al rotar, logout revoca la familia completa, y un refresh ya usado se
+// reconoce (usado_en no es nulo) para cerrar todas las sesiones por robo.
+model Sesion {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  familiaId       String      @map("familia_id") @db.Uuid
+  usuarioId       String      @map("usuario_id") @db.Uuid
+  hashRefresco    String      @unique @map("hash_refresco") // nunca el token en claro
+  // Empresa activa de esta sesión; se copia al rotar y cambia con switch-tenant.
+  empresaActivaId String?     @map("empresa_activa_id") @db.Uuid
+  dispositivo     Dispositivo @default(desconocido)
+  ip              String?     @db.Inet
+  venceEn         DateTime    @map("vence_en") @db.Timestamptz(3)
+  usadoEn         DateTime?   @map("usado_en") @db.Timestamptz(3)
+  revocadoEn      DateTime?   @map("revocado_en") @db.Timestamptz(3)
+  creadoEn        DateTime    @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  empresaActiva Empresa? @relation(fields: [empresaActivaId], references: [id], onDelete: SetNull)
+
+  @@index([familiaId])
+  @@index([usuarioId, revocadoEn])
+  @@map("sesiones")
+}
+
+// Códigos de 6 dígitos para verificar el correo o recuperar la contraseña.
+// Ocurren antes de tener empresa, por eso no llevan tenant_id.
+model CodigoVerificacion {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId  String     @map("usuario_id") @db.Uuid
+  tipo       TipoCodigo
+  hashCodigo String     @map("hash_codigo")
+  intentos   Int        @default(0) // máximo 5
+  venceEn    DateTime   @map("vence_en") @db.Timestamptz(3) // 10 minutos
+  usadoEn    DateTime?  @map("usado_en") @db.Timestamptz(3)
+  creadoEn   DateTime   @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  // Buscar el último código vigente y controlar el reenvío cada 45 segundos.
+  @@index([usuarioId, tipo, creadoEn(sort: Desc)])
+  @@map("codigos_verificacion")
+}
+
+// Catálogo fijo de los 8 módulos de la pantalla "Permisos por rol".
+// Lo carga el seed (B08) y nadie lo edita desde la app.
+model Modulo {
+  clave  String @id @db.VarChar(40) // casos, clientes, documentos, actividades, asistente_ia, aprobar_ia, administracion, auditoria
+  nombre String @db.VarChar(80)
+  orden  Int    @db.SmallInt
+
+  rolPermisos RolPermiso[]
+
+  @@map("modulos")
+}
+
+// ---------------------------------------------------------------------------
+// Tablas de la empresa: llevan tenant_id y sus índices empiezan por él.
+// ---------------------------------------------------------------------------
+
+model Rol {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  nombre    String   @db.VarChar(60)
+  // Identifica los cinco roles copiados al crear la empresa (administrador,
+  // abogado, ...). Las reglas contra el bloqueo la usan aunque cambien el nombre.
+  clave     String?  @db.VarChar(40)
+  esSistema Boolean  @default(false) @map("es_sistema")
+  creadoEn  DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  empresa      Empresa      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permisos     RolPermiso[]
+  membresias   Membresia[]
+  invitaciones Invitacion[]
+
+  @@unique([tenantId, id]) // destino de las llaves compuestas
+  @@unique([tenantId, nombre])
+  @@unique([tenantId, clave])
+  @@map("roles")
+}
+
+// Una fila por rol y módulo con su nivel (Ninguno, Ver o Editar).
+model RolPermiso {
+  tenantId    String       @map("tenant_id") @db.Uuid
+  rolId       String       @map("rol_id") @db.Uuid
+  moduloClave String       @map("modulo_clave") @db.VarChar(40)
+  nivel       NivelPermiso @default(ninguno)
+
+  empresa Empresa @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rol     Rol     @relation(fields: [tenantId, rolId], references: [tenantId, id], onDelete: Cascade)
+  modulo  Modulo  @relation(fields: [moduloClave], references: [clave], onDelete: Restrict)
+
+  @@id([tenantId, rolId, moduloClave])
+  @@map("rol_permisos")
+}
+
+// Puente persona ↔ empresa, y también la cola de "Solicitudes de acceso".
+model Membresia {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String          @map("tenant_id") @db.Uuid
+  usuarioId     String          @map("usuario_id") @db.Uuid
+  rolId         String          @map("rol_id") @db.Uuid
+  estado        EstadoMembresia @default(en_espera)
+  origen        OrigenMembresia
+  invitacionId  String?         @map("invitacion_id") @db.Uuid // con qué código entró
+  aprobadoPorId String?         @map("aprobado_por_id") @db.Uuid
+  aprobadoEn    DateTime?       @map("aprobado_en") @db.Timestamptz(3)
+  creadoEn      DateTime        @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  empresa     Empresa     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuario     Usuario     @relation("MiembroDe", fields: [usuarioId], references: [id], onDelete: Cascade)
+  // Restrict: no se borra un rol que todavía tiene miembros.
+  rol         Rol         @relation(fields: [tenantId, rolId], references: [tenantId, id], onDelete: Restrict)
+  invitacion  Invitacion? @relation(fields: [tenantId, invitacionId], references: [tenantId, id], onDelete: NoAction)
+  aprobadoPor Usuario?    @relation("AprobadaPor", fields: [aprobadoPorId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, usuarioId]) // una sola membresía por persona en cada empresa
+  @@index([tenantId, estado, creadoEn]) // solicitudes pendientes, la más antigua primero
+  @@index([tenantId, rolId]) // filtro por rol en "Miembros y roles"
+  @@index([usuarioId]) // "Mis empresas": las empresas de una persona
+  @@map("membresias")
+}
+
+// Códigos tipo ACC-7K2. Solo se guarda el hash.
+model Invitacion {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  // Único en toda la base: el canje busca el código antes de saber la empresa.
+  hashCodigo         String    @unique @map("hash_codigo")
+  rolId              String    @map("rol_id") @db.Uuid // rol por defecto al aprobar
+  requiereAprobacion Boolean   @default(true) @map("requiere_aprobacion")
+  usosMaximos        Int?      @map("usos_maximos") // nulo = sin límite
+  usos               Int       @default(0)
+  venceEn            DateTime? @map("vence_en") @db.Timestamptz(3)
+  revocadoEn         DateTime? @map("revocado_en") @db.Timestamptz(3)
+  creadoPorId        String?   @map("creado_por_id") @db.Uuid
+  creadoEn           DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  empresa    Empresa     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rol        Rol         @relation(fields: [tenantId, rolId], references: [tenantId, id], onDelete: Restrict)
+  creadoPor  Usuario?    @relation(fields: [creadoPorId], references: [id], onDelete: SetNull)
+  membresias Membresia[]
+
+  @@unique([tenantId, id]) // destino de la llave compuesta desde membresias
+  @@index([tenantId, creadoEn(sort: Desc)])
+  @@map("invitaciones")
+}
+
+// Bitácora de solo inserción. tenant_id es nulo en eventos que ocurren antes de
+// elegir empresa (registro, login). Quitar UPDATE y DELETE al usuario de la API
+// se hace en la migración de seguridad a nivel de fila (B36).
+model Auditoria {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String?     @map("tenant_id") @db.Uuid
+  actorId     String?     @map("actor_id") @db.Uuid // nulo en intentos fallidos sin usuario
+  accion      String      @db.VarChar(60) // por ejemplo auth.login, membresia.aprobar
+  entidad     String?     @db.VarChar(60)
+  entidadId   String?     @map("entidad_id") @db.Uuid
+  detalle     Json? // datos del cambio; nunca contraseñas, tokens ni códigos
+  dispositivo Dispositivo @default(desconocido)
+  ip          String?     @db.Inet
+  creadoEn    DateTime    @default(now()) @map("creado_en") @db.Timestamptz(3)
+
+  // Restrict: la bitácora no desaparece si se intenta borrar la empresa.
+  empresa Empresa? @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor   Usuario? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, creadoEn(sort: Desc), id]) // GET /audit con paginación por cursor (B47)
+  // Filtro por usuario. Con tenant_id nulo cubre también los eventos sin
+  // empresa de una persona (registro, login), sin un índice aparte por actor.
+  @@index([tenantId, actorId, creadoEn(sort: Desc)])
+  @@map("auditoria")
 }
