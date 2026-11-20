@@ -37,10 +37,10 @@ export default function Registro() {
     defaultValues: { nombre: '', correo: '', contrasena: '', aceptaTerminos: false },
   });
 
-  // Crea la cuenta y pasa al onboarding. "Revisa tu correo" (F23) irá en medio.
+  // Crea la cuenta; la navegación lleva sola al onboarding porque una cuenta
+  // nueva no lo tiene completo. "Revisa tu correo" (F23) irá en medio.
   const { enviar, errorGeneral } = useEnvioSesion({
     peticion: registrarse,
-    destino: '/perfil',
     setError,
     campos: ['nombre', 'correo', 'contrasena'],
   });

@@ -25,13 +25,15 @@
 ## Rutas
 ### `POST /auth/login` (pública)
 Cuerpo: `{ "correo": "ana@empresa.com", "contrasena": "..." }` (el correo llega ya en minúsculas y sin espacios).
-- **200** → `{ "usuario": { "id", "nombre", "correo" }, "tokens": { "acceso", "renovacion" } }`
+- **200** → `{ "usuario": { "id", "nombre", "correo", "onboardingCompleto" }, "tokens": { "acceso", "renovacion" } }`
+  - `onboardingCompleto` (booleano): la app decide con él si mostrar los pasos 1/5 a 5/5 o ir a Inicio.
+  - `acceso` es un **JWT con `exp`**: la app lo lee para renovarlo cuando le queda menos de 60 s.
 - **401** `CREDENCIALES_INVALIDAS`: mismo error si el correo no existe o la contraseña falla.
 
 ### `POST /auth/registro` (pública)
 Cuerpo: `{ "nombre", "correo", "contrasena", "aceptaTerminos": true }`.
 La contraseña tiene entre 8 y 72 caracteres (72 es el límite de bcrypt).
-- **201** → igual que el login (la persona queda con sesión iniciada).
+- **201** → igual que el login (la persona queda con sesión iniciada), con `onboardingCompleto: false`.
 - **409** `CORREO_EN_USO` con `campos.correo`.
 
 ### `POST /auth/renovar` (pública)
@@ -40,7 +42,14 @@ Cuerpo: `{ "renovacion": "<token de renovación>" }`.
   servir (rotación).
 - **401** `SESION_EXPIRADA`: la app cierra la sesión.
 
+### `POST /auth/salir` (pública)
+Cuerpo: `{ "renovacion": "<token de renovación>" }`.
+- **204**: el token de renovación deja de servir. Si falla (sin red), la app
+  cierra la sesión local igual.
+
 ## Cómo reacciona la app
+- Antes de cada petición privada, si al token de acceso le quedan menos de 60 s
+  (según su `exp`), la app lo renueva primero.
 - Cualquier ruta privada que responda **401**: la app llama una vez a
   `/auth/renovar`, guarda los tokens nuevos y repite la petición. Si la
   renovación falla, cierra la sesión.

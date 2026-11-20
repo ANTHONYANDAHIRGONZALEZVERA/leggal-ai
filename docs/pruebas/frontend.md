@@ -37,9 +37,10 @@ GitHub corre los tres (lint, tipos y pruebas) en cada PR con el workflow
 | `expo-router` (`router`, `Link`) | La navegación real necesita todo el árbol de rutas; basta comprobar a dónde intenta ir la pantalla. |
 | `react-native-safe-area-context` | Usa el mock oficial de la librería (márgenes del teléfono con valores fijos). |
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
+| `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (68)
+## Pruebas actuales (99)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -100,21 +101,70 @@ Pantalla "Crea tu cuenta" (F08, conectada a la API en F09) de punta a punta.
 | Casilla inicial | Términos empieza sin marcar (consentimiento expreso) |
 | Sin aceptar Términos | No crea la cuenta aunque lo demás esté bien |
 | Medidor | Reacciona a la contraseña escrita |
-| Todo correcto | Crea la cuenta, guarda la sesión y pasa al onboarding (`/perfil`) |
+| Todo correcto | Crea la cuenta y guarda la sesión con el onboarding pendiente |
 | Correo ya registrado | Avisa debajo del campo correo (no como aviso general) y no avanza |
 | Volver | La flecha regresa a la pantalla anterior |
 
 ### Pantalla de Inicio de sesión: `src/features/auth/__tests__/iniciar-sesion-test.tsx` (5)
 Pantalla "Bienvenido de nuevo" (F07, conectada a la API en F09) de punta a punta.
+Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
+`navegacion-test`) lleva a donde corresponde.
 | Prueba | Qué asegura |
 |---|---|
-| Enviar vacío | Pide correo y contraseña y no llama a la API |
-| Cuenta correcta | Con " Demo@Leggal.ai " (espacios y mayúsculas) guarda la sesión y entra a `/inicio` |
+| Enviar vacío | Pide correo y contraseña y no inicia sesión |
+| Cuenta correcta | Con " Demo@Leggal.ai " (espacios y mayúsculas) guarda la sesión con el onboarding hecho |
 | Contraseña incorrecta | Muestra el aviso "Correo o contraseña incorrectos." y no entra |
 | Reintento | El aviso desaparece al volver a intentar con la cuenta correcta |
 | Crear cuenta | El enlace lleva a `/registro` |
 
-### Cliente de la API: `src/services/api/__tests__/cliente-test.ts` (16)
+### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (8)
+`app/_layout.tsx` y `app/index.tsx` reales (F10) con el enrutador de Expo Router
+(`renderRouter`); las pantallas son textos con su nombre.
+| Prueba | Qué asegura |
+|---|---|
+| Sin sesión | La app abre en el Splash |
+| Sesión guardada | Abre directo en Inicio, sin pasar por el Login |
+| Onboarding pendiente | Abre en el paso 1/5 |
+| Iniciar sesión | Desde el Login lleva sola a Inicio |
+| Cuenta nueva | Va al onboarding y, al terminarlo, a Inicio |
+| Cerrar sesión | Vuelve al Splash |
+| Enlace directo sin sesión | `/inicio` no deja entrar |
+| Login con sesión | El Login ya no está disponible |
+
+### Cerrar sesión: `src/features/auth/__tests__/cerrar-sesion-test.ts` (3)
+`cerrarSesion` (F10).
+| Prueba | Qué asegura |
+|---|---|
+| Cierre normal | Avisa al servidor con el token de renovación y borra la sesión |
+| Sin red | La sesión se cierra igual |
+| Sin sesión | No llama al servidor |
+
+### Sesión guardada: `src/services/__tests__/sesion-test.ts` (8)
+`useSesion` y `useAcceso` (F10).
+| Prueba | Qué asegura |
+|---|---|
+| Guardar | Al iniciar sesión, usuario y tokens quedan en el almacén cifrado |
+| Borrar | Al cerrar sesión se borran |
+| Recuperar | Al abrir la app se lee la sesión guardada |
+| Token nuevo | Al renovar se guarda el token nuevo |
+| Acceso invitado | Sin sesión es "invitado" |
+| Acceso onboarding | Con sesión y onboarding pendiente es "onboarding" |
+| Acceso app | Con sesión y onboarding hecho es "app" |
+| Terminar onboarding | Pasa a "app" sin perder la sesión |
+
+### Vencimiento del token: `src/services/api/__tests__/jwt-test.ts` (7)
+`leerVencimiento` y `vencePronto` (F10).
+| Prueba | Qué asegura |
+|---|---|
+| Leer exp | Pasa de segundos a milisegundos |
+| base64url | Entiende los "-" y "_" de los JWT reales |
+| Sin exp / no JWT | Devuelve null |
+| Menos de 1 min | Vence pronto |
+| Ya vencido | Vence pronto |
+| Más de 1 min | No vence pronto |
+| No se puede saber | Se usa tal cual |
+
+### Cliente de la API: `src/services/api/__tests__/cliente-test.ts` (19)
 `crearClienteApi` (F09), con un transporte falso que registra cada petición.
 | Prueba | Qué asegura |
 |---|---|
@@ -134,19 +184,24 @@ Pantalla "Bienvenido de nuevo" (F07, conectada a la API en F09) de punta a punta
 | 401 después de renovar | No entra en un bucle (3 llamadas en total) |
 | Sin red al renovar | No cierra la sesión |
 | 401 en el login | No intenta renovar ("Correo o contraseña incorrectos.") |
+| Vence en menos de 1 min (F10) | Lo renueva **antes** de la petición, sin esperar un 401 |
+| Le queda tiempo (F10) | No renueva |
+| Renovación anticipada rechazada (F10) | Cierra la sesión sin hacer la petición |
 
-### API simulada: `src/services/api/__tests__/mock-test.ts` (9)
+### API simulada: `src/services/api/__tests__/mock-test.ts` (11)
 `transporteSimulado` (F11). Debe comportarse como el backend.
 | Prueba | Qué asegura |
 |---|---|
-| Login demo | Devuelve usuario y tokens, nunca la contraseña |
+| Login demo | Devuelve usuario (con onboarding hecho) y tokens, nunca la contraseña |
+| Token JWT | El de acceso trae `exp`, como los del backend |
 | Contraseña incorrecta | 401 `CREDENCIALES_INVALIDAS` |
 | Correo sin cuenta | Mismo error que la contraseña incorrecta (no revela qué correos existen) |
-| Registro | 201 y luego se puede iniciar sesión con esa cuenta |
+| Registro | 201 con el onboarding pendiente, y luego se puede iniciar sesión con esa cuenta |
 | Correo repetido | 409 `CORREO_EN_USO` señalando el campo correo |
 | reiniciarMock | Borra las cuentas creadas |
 | Renovar | Cambia el token de renovación por tokens nuevos |
 | Rotación | Cada token de renovación sirve una sola vez |
+| Cerrar sesión | 204 y el token de renovación deja de servir |
 | Ruta desconocida | 404 que dice qué ruta falta |
 
 ### Errores en formularios: `src/services/api/__tests__/errores-formulario-test.ts` (5)
@@ -164,6 +219,8 @@ Pantalla "Bienvenido de nuevo" (F07, conectada a la API en F09) de punta a punta
   3 pruebas fallaron. Luego se restauró.
 - 15 nov 2026 (F09): se hizo que el cliente intentara renovar el token también
   en rutas públicas y 2 pruebas fallaron. Luego se restauró.
+- 15 nov 2026 (F10): se dejaron las pestañas sin protección y 2 pruebas de
+  navegación fallaron. Luego se restauró.
 
 ## Pendiente
 - Flujos completos en el teléfono con Maestro (según CLAUDE.md del frontend).

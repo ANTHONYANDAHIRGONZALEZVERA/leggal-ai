@@ -1,4 +1,5 @@
 import { ErrorApi } from './errores';
+import { vencePronto } from './jwt';
 
 export type Tokens = { acceso: string; renovacion: string };
 
@@ -82,17 +83,26 @@ export function crearClienteApi(o: OpcionesCliente) {
     return renovacionEnCurso;
   }
 
+  /** Renueva el token o, si el servidor ya no acepta la sesión, la cierra. */
+  async function renovarOExpirar(): Promise<string | undefined> {
+    if (!(await renovar())) {
+      o.alExpirarSesion();
+      throw new ErrorApi('SESION_EXPIRADA', 401);
+    }
+    return o.obtenerTokens()?.acceso;
+  }
+
   async function peticion<T>(ruta: string, opciones: Peticion = {}): Promise<T> {
-    const token = opciones.publica ? undefined : o.obtenerTokens()?.acceso;
+    let token = opciones.publica ? undefined : o.obtenerTokens()?.acceso;
+    // Si al token le queda menos de un minuto, se renueva antes de usarlo:
+    // así la petición no falla a mitad de camino.
+    if (token && vencePronto(token)) token = await renovarOExpirar();
+
     let resultado = await enviar(ruta, opciones, token);
 
-    // Token vencido: se renueva una sola vez y se repite la petición.
+    // El servidor rechazó el token: se renueva una sola vez y se repite la petición.
     if (resultado.estado === 401 && token) {
-      if (!(await renovar())) {
-        o.alExpirarSesion();
-        throw new ErrorApi('SESION_EXPIRADA', 401);
-      }
-      resultado = await enviar(ruta, opciones, o.obtenerTokens()?.acceso);
+      resultado = await enviar(ruta, opciones, await renovarOExpirar());
     }
 
     if (!resultado.ok) throw ErrorApi.desdeRespuesta(resultado.estado, resultado.datos);

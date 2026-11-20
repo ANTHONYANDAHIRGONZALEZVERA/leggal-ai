@@ -233,3 +233,49 @@ describe('crearClienteApi: renovación del token', () => {
     expect(transporte).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('crearClienteApi: renovación antes de vencer (F10)', () => {
+  /** JWT de prueba que vence dentro de `ms` milisegundos. */
+  function tokenQueVenceEn(ms: number) {
+    const parte = (datos: object) => btoa(JSON.stringify(datos)).replace(/=+$/, '');
+    return `${parte({ alg: 'HS256' })}.${parte({ exp: Math.floor((Date.now() + ms) / 1000) })}.firma`;
+  }
+
+  test('si al token le queda menos de un minuto, lo renueva antes de la petición', async () => {
+    const { cliente, transporte } = armar({
+      tokens: { acceso: tokenQueVenceEn(30_000), renovacion: 'renovacion-1' },
+      responder: (ruta) => (ruta === RUTA_RENOVAR ? respuesta(200, TOKENS_NUEVOS) : respuesta(200, ['caso'])),
+    });
+
+    await expect(cliente.peticion('/casos')).resolves.toEqual(['caso']);
+
+    const llamadas = transporte.mock.calls.map(([url, init]) => [url.replace(URL_BASE, ''), init.headers.Authorization]);
+    // Primero renueva y luego pide los casos ya con el token nuevo: sin un 401 de por medio.
+    expect(llamadas).toEqual([
+      [RUTA_RENOVAR, undefined],
+      ['/casos', 'Bearer acceso-nuevo'],
+    ]);
+  });
+
+  test('si al token le queda tiempo de sobra, no renueva', async () => {
+    const { cliente, transporte } = armar({
+      tokens: { acceso: tokenQueVenceEn(10 * 60_000), renovacion: 'renovacion-1' },
+    });
+
+    await cliente.peticion('/casos');
+
+    expect(transporte).toHaveBeenCalledTimes(1);
+  });
+
+  test('si la renovación anticipada es rechazada, cierra la sesión sin hacer la petición', async () => {
+    const { cliente, transporte, alExpirarSesion } = armar({
+      tokens: { acceso: tokenQueVenceEn(-5000), renovacion: 'renovacion-1' },
+      responder: () => respuesta(401, { codigo: 'SESION_EXPIRADA' }),
+    });
+
+    await expect(cliente.peticion('/casos')).rejects.toMatchObject({ codigo: 'SESION_EXPIRADA' });
+
+    expect(alExpirarSesion).toHaveBeenCalledTimes(1);
+    expect(transporte.mock.calls.map(([url]) => url.replace(URL_BASE, ''))).toEqual([RUTA_RENOVAR]);
+  });
+});
