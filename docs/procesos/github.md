@@ -53,12 +53,36 @@ funcionan con el plan gratuito y GitHub Actions no descuenta minutos.
 
 ## Workflows
 
-| Archivo | Cuándo | Qué hace hoy | Se completa en |
-|---|---|---|---|
-| `backend.yml` | PR y push a `main` | `npm ci` si cambió `backend/` | B14 |
-| `frontend.yml` | PR y push a `main` | `npm ci` si cambió `frontend/` | F13 |
-| `seguridad.yml` | Cada PR y los lunes | `npm audit` (altas y críticas) | — |
+| Archivo | Cuándo | Qué hace |
+|---|---|---|
+| `ci.yml` | Cada PR y push a `main` | Prueba, revisa tipos y hace el build de las dos carpetas; si todo pasa, fusiona |
+| `seguridad.yml` | Cada PR y los lunes | `npm audit` (altas y críticas) |
 
-Los checks `backend` y `frontend` corren siempre y saltan los pasos con
-`dorny/paths-filter`; si se filtraran por carpeta en el `on:`, GitHub los
-dejaría "pendientes" y bloquearía la fusión.
+### `ci.yml` paso a paso
+En los jobs `frontend` y `backend` (corren a la vez, en las dos carpetas siempre):
+
+| Paso | frontend | backend |
+|---|---|---|
+| 1. Clonar el repositorio | `actions/checkout` | `actions/checkout` |
+| 2. Dependencias con el lockfile congelado | `npm ci` | `npm ci` |
+| 3. Pruebas | `npm test -- --ci` | `npm test -- --ci` |
+| 4. Tipos | `npm run tipos` (tsc) | `npx tsc --noEmit` |
+| 5. Estilo | `npm run lint` | — |
+| 6. Build | `npx expo export` (Android y web) | `npm run build` (nest build) |
+
+`npm ci` es el "frozen lockfile" de npm: instala exactamente lo del
+`package-lock.json` y falla si no coincide con `package.json`.
+
+Después:
+- **Todo pasa** → el job `fusionar si todo pasa` activa la fusión automática
+  (squash). GitHub fusiona apenas el otro aprueba; si ya aprobó, en el momento.
+- **Algo falla** → no se fusiona: el job `reportar error` quita la fusión
+  automática y deja un comentario en la PR con la parte que falló y el enlace
+  al error. Al subir el arreglo, todo vuelve a correr.
+
+Reglas del archivo:
+- Los jobs se llaman `frontend` y `backend` porque son los checks
+  obligatorios del ruleset. Si se renombran, hay que cambiar el ruleset.
+- Solo fusiona PRs hacia `main` que no son borrador. Las PRs apiladas (hacia
+  otra rama) y las de Dependabot no se fusionan solas.
+- La aprobación del otro sigue siendo obligatoria: el workflow no la salta.

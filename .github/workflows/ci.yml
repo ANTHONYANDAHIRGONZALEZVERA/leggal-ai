@@ -1,0 +1,158 @@
+name: ci
+
+# Una sola tubería para las dos carpetas. En cada PR:
+#   1. Clona el repositorio.
+#   2. Instala las dependencias tal cual el package-lock.json (npm ci = frozen lockfile).
+#   3. Corre las pruebas.
+#   4. Revisa los tipos con tsc.
+#   5. Hace el build.
+#   6. Si todo pasa, activa la fusión automática (squash). Si algo falla,
+#      no se fusiona y deja un comentario en la PR con el error.
+#
+# Los jobs se llaman "frontend" y "backend" porque así se llaman los checks
+# obligatorios del ruleset de main. Si se renombran, hay que cambiar el ruleset.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # npm ci falla si package.json y package-lock.json no coinciden: nunca
+      # actualiza el lockfile (equivale a --frozen-lockfile de yarn y pnpm).
+      - name: Instalar dependencias (lockfile congelado)
+        run: npm ci
+
+      - name: Correr pruebas (Jest)
+        run: npm test -- --ci
+
+      - name: Revisar tipos (tsc)
+        run: npm run tipos
+
+      - name: Revisar estilo (ESLint)
+        run: npm run lint
+
+      # Arma el paquete de la app para Android y web, igual que al publicar.
+      # Falla si alguna importación o archivo no se puede empaquetar.
+      - name: Build (expo export)
+        run: npx expo export --platform android --platform web --output-dir dist
+
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias (lockfile congelado)
+        run: npm ci
+
+      - name: Correr pruebas (Jest)
+        run: npm test -- --ci
+
+      - name: Revisar tipos (tsc)
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Build (nest build)
+        run: npm run build
+
+  # Solo PRs hacia main que no son borrador. Dependabot queda fuera: GitHub
+  # le da un token de solo lectura y sus PRs las revisa una persona.
+  fusionar:
+    name: fusionar si todo pasa
+    needs: [frontend, backend]
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.base.ref == 'main' &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # --auto: GitHub fusiona apenas se cumplan las reglas de main (checks en
+      # verde y la aprobación del otro). Si ya están, fusiona en el momento.
+      - name: Activar fusión automática (squash)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: gh pr merge "$PR" --repo "$REPO" --auto --squash
+
+  reportar:
+    name: reportar error
+    needs: [frontend, backend]
+    if: >-
+      failure() &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Cancelar la fusión automática y comentar el error
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          FRONTEND: ${{ needs.frontend.result }}
+          BACKEND: ${{ needs.backend.result }}
+          ENLACE: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Puede que la fusión automática no estuviera activa: no es un error.
+          gh pr merge "$PR" --repo "$REPO" --disable-auto || true
+
+          {
+            echo "### ❌ La PR no se fusiona: falló la revisión automática"
+            echo ""
+            echo "| Parte | Resultado |"
+            echo "|---|---|"
+            echo "| frontend | $FRONTEND |"
+            echo "| backend | $BACKEND |"
+            echo ""
+            echo "Detalle del error (abre el paso en rojo): $ENLACE"
+            echo ""
+            echo "Corrige, sube los cambios y la revisión vuelve a correr sola."
+          } > comentario.md
+
+          # Edita el comentario anterior del bot en vez de llenar la PR de avisos.
+          gh pr comment "$PR" --repo "$REPO" --body-file comentario.md --edit-last --create-if-none \
+            || gh pr comment "$PR" --repo "$REPO" --body-file comentario.md

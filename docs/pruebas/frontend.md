@@ -12,8 +12,9 @@ Desde `frontend/`:
 | `npm run tipos` | Revisa los tipos de TypeScript |
 | `npm run lint` | Revisa estilo y errores comunes con ESLint |
 
-GitHub corre los tres (lint, tipos y pruebas) en cada PR con el workflow
-`.github/workflows/frontend.yml`. Si alguno falla, la PR no se puede fusionar.
+GitHub corre pruebas, tipos, lint y el build (`expo export`) en cada PR con el
+workflow `.github/workflows/ci.yml`. Si alguno falla, la PR no se fusiona y el
+workflow deja un comentario con el error.
 
 ## Herramientas
 - **Jest** con el preset `jest-expo`: corre las pruebas.
