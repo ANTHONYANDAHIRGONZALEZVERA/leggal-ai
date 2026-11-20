@@ -34,7 +34,17 @@ contraseña por empresa.
 Llevan tenant_id: `roles`, `rol_permisos`, `membresias`, `invitaciones` y
 `auditoria` (nulo en eventos anteriores a elegir empresa, como registro y login).
 Reglas para esas tablas:
-- Sus índices empiezan por `tenant_id`.
+- Sus índices empiezan por `tenant_id`, con dos excepciones. Las dos son
+  búsquedas que ocurren **antes** de saber de qué empresa se trata, así que no
+  pueden filtrar por tenant_id:
+  - `membresias(usuario_id)`: "Mis empresas" y "Elige tu espacio" listan las
+    empresas de una persona. Siempre se filtra por el `sub` del JWT.
+  - `invitaciones(hash_codigo)`, único en toda la base: al canjear un código
+    se busca primero el código y de ahí sale la empresa. Limitado a 5 intentos
+    por hora por usuario.
+
+  Las políticas de seguridad a nivel de fila (B36) tienen que permitir estas
+  dos búsquedas sin abrir el resto de la tabla.
 - Se referencian entre sí con llaves compuestas `(tenant_id, id)`, para que
   PostgreSQL rechace mezclar datos de dos empresas aunque el código falle.
 - La seguridad a nivel de fila (B36) solo se aplica a ellas.

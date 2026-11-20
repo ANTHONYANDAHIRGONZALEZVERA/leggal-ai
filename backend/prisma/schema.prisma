@@ -186,15 +186,17 @@ model Usuario {
 // Datos profesionales del onboarding (pasos 2/5, 3/5 y 5/5). Son de la persona,
 // no de la empresa: "Estudiante" u "Otro" no son roles dentro de una empresa.
 model Perfil {
-  usuarioId      String          @id @map("usuario_id") @db.Uuid
-  rolProfesional RolProfesional? @map("rol_profesional")
-  materias       String[]        @default([])
-  matricula      String?         @db.VarChar(40) // matrícula profesional, opcional
-  modoTrabajo    ModoTrabajo?    @map("modo_trabajo")
-  usos           String[]        @default([]) // "¿Para qué usarás Leggal AI?"
-  canalPreferido CanalPreferido? @map("canal_preferido")
-  notificaciones Boolean         @default(true)
-  actualizadoEn  DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  usuarioId            String          @id @map("usuario_id") @db.Uuid
+  rolProfesional       RolProfesional? @map("rol_profesional")
+  materias             String[]        @default([])
+  matricula            String?         @db.VarChar(40) // matrícula profesional, opcional
+  modoTrabajo          ModoTrabajo?    @map("modo_trabajo")
+  usos                 String[]        @default([]) // "¿Para qué usarás Leggal AI?"
+  canalPreferido       CanalPreferido? @map("canal_preferido")
+  // Los dos interruptores del paso 5/5: avisos en el teléfono y por correo.
+  notificacionesPush   Boolean         @default(true) @map("notificaciones_push")
+  notificacionesCorreo Boolean         @default(true) @map("notificaciones_correo")
+  actualizadoEn        DateTime        @updatedAt @map("actualizado_en") @db.Timestamptz(3)
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
@@ -403,7 +405,8 @@ model Auditoria {
   actor   Usuario? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, creadoEn(sort: Desc), id]) // GET /audit con paginación por cursor (B47)
-  @@index([tenantId, actorId, creadoEn(sort: Desc)]) // filtro por usuario
-  @@index([actorId, creadoEn(sort: Desc)]) // eventos sin empresa de una persona
+  // Filtro por usuario. Con tenant_id nulo cubre también los eventos sin
+  // empresa de una persona (registro, login), sin un índice aparte por actor.
+  @@index([tenantId, actorId, creadoEn(sort: Desc)])
   @@map("auditoria")
 }
