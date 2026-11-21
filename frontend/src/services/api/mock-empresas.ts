@@ -22,8 +22,10 @@ export type Herramientas = {
 export const CODIGOS_DE_PRUEBA = {
   /** ACCONS S.A.S., verificada, rol Abogado/a, requiere aprobación. */
   accons: 'ACC-7K2',
-  /** Estudio sin verificar, rol Asistente legal. */
+  /** Estudio sin verificar, rol Asistente legal. Su "administrador" aprueba solo a los 40 s. */
   estudio: 'LEX-4P9',
+  /** Entra directo, sin aprobación (la empresa no la pide). */
+  directo: 'DIR-8M3',
   /** Vencido: ya no sirve. */
   vencido: 'OLD-2X1',
 } as const;
@@ -40,7 +42,12 @@ type Invitacion = {
   rol: RolAsignado;
   requiereAprobacion: boolean;
   vencida?: boolean;
+  /** Solo la API simulada: aprueba sola la solicitud pasado este tiempo, para verlo en la app. */
+  aprobarTrasMs?: number;
 };
+
+/** Cuánto tarda en aprobarse sola una solicitud con `LEX-4P9`. */
+export const APROBAR_LEX_TRAS_MS = 40_000;
 
 const INVITACIONES: Record<string, Invitacion> = {
   ACC7K2: {
@@ -56,6 +63,12 @@ const INVITACIONES: Record<string, Invitacion> = {
     },
     rol: { codigo: 'asistente_legal', nombre: 'Asistente legal' },
     requiereAprobacion: true,
+    aprobarTrasMs: APROBAR_LEX_TRAS_MS,
+  },
+  DIR8M3: {
+    empresa: { id: 'emp-andina', nombre: 'Consultora Jurídica Andina', verificada: true },
+    rol: { codigo: 'abogado', nombre: 'Abogado/a' },
+    requiereAprobacion: false,
   },
   OLD2X1: {
     empresa: { id: 'emp-vieja', nombre: 'Empresa Antigua', verificada: false },
@@ -149,10 +162,17 @@ export function crearRutasEmpresas({ responder, fallar, sesionEnEmpresa }: Herra
       return responder(201, { solicitud: publica });
     },
 
-    'GET /join-requests/me': (_cuerpo: Cuerpo, persona: Persona) =>
-      responder(200, {
-        solicitudes: solicitudes.filter((s) => s.usuarioId === persona.id).map(({ usuarioId: _usuarioId, ...s }) => s),
-      }),
+    'GET /join-requests/me': (_cuerpo: Cuerpo, persona: Persona) => {
+      const propias = solicitudes.filter((s) => s.usuarioId === persona.id);
+      // El "administrador" simulado de LEX-4P9 aprueba pasado su tiempo.
+      for (const s of propias) {
+        const espera = INVITACIONES[normalizar(s.codigo)]?.aprobarTrasMs;
+        if (s.estado === 'en_espera' && espera !== undefined && Date.now() - Date.parse(s.creadaEn) >= espera) {
+          s.estado = 'aprobada';
+        }
+      }
+      return responder(200, { solicitudes: propias.map(({ usuarioId: _usuarioId, ...s }) => s) });
+    },
 
     // Idempotente: cancelar una que ya no está pendiente no falla.
     'DELETE /join-requests/me/:id': (cuerpo: Cuerpo, persona: Persona) => {

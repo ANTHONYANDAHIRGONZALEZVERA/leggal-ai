@@ -116,6 +116,18 @@ describe('Onboarding 4/5: unirme con código', () => {
     expect(useBorradorOnboarding.getState().solicitud).toMatchObject({ estado: 'en_espera', codigo: 'ACC-7K2' });
   });
 
+  test('con un código sin aprobación (DIR-8M3) entra directo y sigue al 5/5', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Empresa />);
+    await user.type(campoCodigo(), CODIGOS_DE_PRUEBA.directo);
+    expect(await screen.findByText('Inmediato')).toBeOnTheScreen();
+
+    await user.press(solicitarAcceso());
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/preferencias'));
+    expect(useBorradorOnboarding.getState().solicitud).toMatchObject({ estado: 'aprobada', codigo: 'DIR-8M3' });
+  });
+
   test('con una solicitud pendiente lo avisa y deja verla', async () => {
     const user = userEvent.setup();
     await renderizar(<Empresa />);

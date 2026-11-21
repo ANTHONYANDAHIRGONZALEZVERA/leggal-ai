@@ -56,6 +56,9 @@ const PUNTOS_NOTIFICACIONES: PuntoPermiso[] = [
   { icono: 'escudo', texto: 'Puedes desactivarlas en Ajustes', fondo: '#FFF1DC', color: '#A15C00' },
 ];
 
+/** Si el sistema falla al consultar o pedir el permiso (no debería, pero no hay que trabarse). */
+const ERROR_PERMISO = 'No pudimos activar las notificaciones. Puedes activarlas luego en Ajustes.';
+
 /** Pantalla de permiso abierta: para qué aviso, y si aún se puede pedir o solo en Ajustes. */
 type Permiso = { campo: Aviso; estado: 'preguntar' | 'bloqueado' } | null;
 
@@ -66,6 +69,7 @@ export default function Preferencias() {
   const { perfil, area, modo, empresa, solicitud, preferencias } = useBorradorOnboarding();
   const [permiso, setPermiso] = useState<Permiso>(null);
   const [errorEnvio, setErrorEnvio] = useState<string>();
+  const [errorPermiso, setErrorPermiso] = useState<string>();
 
   const {
     control,
@@ -89,23 +93,34 @@ export default function Preferencias() {
 
   /** Encender un aviso necesita el permiso del sistema; apagarlo no. */
   async function cambiarAviso(campo: Aviso, encendido: boolean) {
+    setErrorPermiso(undefined);
     if (!encendido) return setValue(`notificaciones.${campo}`, false);
-    const estado = await consultarPermisoNotificaciones();
-    if (estado === 'concedido') setValue(`notificaciones.${campo}`, true);
-    else setPermiso({ campo, estado });
+    try {
+      const estado = await consultarPermisoNotificaciones();
+      if (estado === 'concedido') setValue(`notificaciones.${campo}`, true);
+      else setPermiso({ campo, estado });
+    } catch {
+      setErrorPermiso(ERROR_PERMISO);
+    }
   }
 
+  /** Si algo falla, el aviso queda apagado y se explica; el onboarding sigue. */
   async function permitir() {
     if (!permiso) return;
-    if (permiso.estado === 'bloqueado') {
+    try {
+      if (permiso.estado === 'bloqueado') {
+        setPermiso(null);
+        await Linking.openSettings();
+        return;
+      }
+      const estado = await pedirPermisoNotificaciones();
+      if (estado === 'bloqueado') return setPermiso({ ...permiso, estado });
       setPermiso(null);
-      await Linking.openSettings();
-      return;
+      if (estado === 'concedido') setValue(`notificaciones.${permiso.campo}`, true);
+    } catch {
+      setPermiso(null);
+      setErrorPermiso(ERROR_PERMISO);
     }
-    const estado = await pedirPermisoNotificaciones();
-    if (estado === 'bloqueado') return setPermiso({ ...permiso, estado });
-    setPermiso(null);
-    if (estado === 'concedido') setValue(`notificaciones.${permiso.campo}`, true);
   }
 
   const empezar = handleSubmit(async (datos) => {
@@ -225,6 +240,11 @@ export default function Preferencias() {
                 )}
               />
             ))}
+            {errorPermiso && (
+              <Texto variante="nota" accessibilityLiveRegion="polite" style={{ color: colors.error }}>
+                {errorPermiso}
+              </Texto>
+            )}
           </Aparecer>
 
           <View style={{ flex: 1, minHeight: spacing.xxl }} />
