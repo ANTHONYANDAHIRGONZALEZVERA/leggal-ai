@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Modal, ScrollView, View, type TextInputInstance } from 'react-native';
+import { BackHandler, Modal, ScrollView, View, type TextInputInstance } from 'react-native';
 
 import { Aparecer } from '@/components/aparecer';
 import { AvatarEsfera } from '@/components/avatar-esfera';
@@ -93,6 +93,18 @@ export default function Perfil() {
   });
 
   const aviso = errors.usuario ? undefined : avisoUsuario[estado];
+
+  // El "atrás" del teléfono hace lo mismo que la flecha: salir al inicio de
+  // sesión. Solo mientras esta pantalla está al frente (no desde el 2/5).
+  useFocusEffect(
+    useCallback(() => {
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        void cerrarSesion();
+        return true;
+      });
+      return () => suscripcion.remove();
+    }, []),
+  );
 
   return (
     <PantallaConEsfera>

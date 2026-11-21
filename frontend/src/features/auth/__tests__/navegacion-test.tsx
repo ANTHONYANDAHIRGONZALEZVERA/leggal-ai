@@ -6,6 +6,7 @@ import RootLayout from '@/app/_layout';
 import Entrada from '@/app/index';
 import { sesionDePrueba } from '@/pruebas/sesion';
 import { api } from '@/services/api';
+import { reiniciarEntrada } from '@/services/entrada';
 import { useSesion } from '@/services/sesion';
 
 // Navegación según la sesión (F10), con el enrutador real de Expo Router y el
@@ -41,6 +42,7 @@ const sesion = (onboardingCompleto: boolean) => sesionDePrueba({ usuario: { onbo
 const renovarAlAbrir = jest.spyOn(api, 'renovarAlAbrir');
 
 beforeEach(() => {
+  reiniciarEntrada(); // cada prueba es una app recién abierta
   useSesion.getState().cerrar();
   renovarAlAbrir.mockReset().mockResolvedValue('renovada');
 });
@@ -91,15 +93,37 @@ describe('Navegación según la sesión', () => {
     expect(await screen.findByText('Inicio')).toBeOnTheScreen();
   });
 
-  test('al cerrar sesión vuelve al Splash', async () => {
+  test('al cerrar sesión va a "Bienvenido de nuevo", no al Splash', async () => {
     useSesion.getState().iniciar(sesion(true));
     await renderRouter(rutas);
     await screen.findByText('Inicio');
 
     await act(() => useSesion.getState().cerrar());
 
-    expect(await screen.findByText('Splash')).toBeOnTheScreen();
-    expect(screen).toHavePathname('/splash');
+    expect(await screen.findByText('Login')).toBeOnTheScreen();
+    expect(screen).toHavePathname('/iniciar-sesion');
+  });
+
+  test('el Splash se ve una sola vez: al abrir sin sesión, y no otra vez al salir', async () => {
+    await renderRouter(rutas);
+    await screen.findByText('Splash');
+    await act(() => useSesion.getState().iniciar(sesion(true)));
+    await screen.findByText('Inicio');
+
+    await act(() => useSesion.getState().cerrar());
+
+    expect(await screen.findByText('Login')).toBeOnTheScreen();
+  });
+
+  test('al salir del paso 1/5 va a "Bienvenido de nuevo", no al Splash', async () => {
+    useSesion.getState().iniciar(sesion(false));
+    await renderRouter(rutas);
+    await screen.findByText('Perfil');
+
+    await act(() => useSesion.getState().cerrar());
+
+    expect(await screen.findByText('Login')).toBeOnTheScreen();
+    expect(screen.queryByText('Splash')).not.toBeOnTheScreen();
   });
 
   test('sin sesión, un enlace directo a Inicio no deja entrar', async () => {
