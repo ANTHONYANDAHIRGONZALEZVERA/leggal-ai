@@ -111,9 +111,9 @@ export function desplazamiento(avance: number, anchoCopia: number, haciaDerecha:
 
 /**
  * Una fila que se desliza sola y sin fin: la lista va dos veces seguidas y se
- * mueve el ancho de una copia (se mide la copia, no la fila, que toma el ancho
- * de la pantalla). Con valores compartidos de Reanimated, como la esfera: corre
- * en el hilo de UI y React no vuelve a dibujar nada en cada cuadro.
+ * mueve el ancho de una copia (la mitad de la fila). Con valores compartidos de
+ * Reanimated, como la esfera: corre en el hilo de UI y React no vuelve a
+ * dibujar nada en cada cuadro.
  */
 function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha }: Fila) {
   const anchoCopia = useSharedValue(0);
@@ -132,23 +132,24 @@ function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha }: Fila) {
     transform: [{ translateX: desplazamiento(avance.get(), anchoCopia.get(), haciaDerecha) }],
   }));
 
-  const copia = (medida: boolean) => (
-    <View
-      onLayout={medida ? (e) => medir(e.nativeEvent.layout.width) : undefined}
-      style={{ flexDirection: 'row', gap: SEPARACION, paddingRight: SEPARACION }}>
-      {sugerencias.map((sugerencia) => (
-        <Chip key={sugerencia.accion} {...sugerencia} />
-      ))}
-    </View>
-  );
+  // Dos copias seguidas, cada una con su separación al final: así la fila
+  // mide justo dos copias y la mitad es una copia exacta.
+  const sugerenciasDobles = [...sugerencias, ...sugerencias];
 
+  // El ScrollView horizontal (quieto) deja a la fila tener su ancho real: en
+  // un View normal quedaría del ancho de la pantalla y en Android lo que se
+  // sale no se dibuja. Se mide la misma vista animada, que Android nunca quita
+  // al optimizar (un View simple sí puede quitarlo y su medida no llega).
   return (
-    <View style={{ overflow: 'hidden' }}>
-      <Animated.View style={[{ flexDirection: 'row', alignSelf: 'flex-start' }, estilo]}>
-        {copia(true)}
-        {copia(false)}
+    <ScrollView horizontal scrollEnabled={false} showsHorizontalScrollIndicator={false} pointerEvents="none">
+      <Animated.View
+        onLayout={(e) => medir(e.nativeEvent.layout.width / 2)}
+        style={[{ flexDirection: 'row', gap: SEPARACION, paddingRight: SEPARACION }, estilo]}>
+        {sugerenciasDobles.map((sugerencia, i) => (
+          <Chip key={`${sugerencia.accion}-${i}`} {...sugerencia} />
+        ))}
       </Animated.View>
-    </View>
+    </ScrollView>
   );
 }
 
