@@ -20,11 +20,12 @@ Se guarda en el borrador y se envía al final con el resto (F31, B34). Valores
 que manda la app:
 - `rol` (obligatorio): `abogado`, `asistente_legal`, `contador`, `gerente`,
   `estudiante` u `otro`.
-- `materias` (lista, puede ir vacía): `laboral`, `civil`, `penal`,
-  `tributario`, `societario`, `familia`, `administrativo`, `constitucional`,
-  `propiedad_intelectual`.
-- `matricula` (texto o `null`): solo si el rol es `abogado`; hasta 30
-  caracteres con letras, números, espacios, puntos, guiones o barras.
+- `materias` (lista, puede ir vacía, sin repetidas y en este orden):
+  `laboral`, `civil`, `penal`, `tributario`, `societario`, `familia`,
+  `administrativo`, `constitucional`, `propiedad_intelectual`.
+- `matricula` (texto o `null`): solo si el rol es `abogado`; de 3 a 30
+  caracteres con letras, números, espacios, puntos, guiones o barras, al
+  menos un número, en mayúsculas. El backend debe revisarla igual.
 
 ## `GET /usuarios/disponible?usuario=<texto>` (F30)
 Revisa si un @usuario está libre. La app solo consulta textos con formato

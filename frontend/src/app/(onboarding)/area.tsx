@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +19,15 @@ import { TarjetaOpcion } from '@/components/tarjeta-opcion';
 import { Texto } from '@/components/texto';
 import { TituloDestacado } from '@/components/titulo-destacado';
 import { useBorradorOnboarding } from '@/features/onboarding/borrador';
-import { esquemaArea, MATERIAS, ROLES, type AreaValidada, type DatosArea, type Rol } from '@/features/onboarding/esquemas';
+import {
+  esquemaArea,
+  LARGO_MAX_MATRICULA,
+  MATERIAS,
+  ROLES,
+  type AreaValidada,
+  type DatosArea,
+  type Rol,
+} from '@/features/onboarding/esquemas';
 import { colors, MARGEN_PANTALLA, spacing } from '@/theme';
 
 // Ícono y colores de cada rol, como en el diseño.
@@ -38,12 +47,13 @@ const FILAS_ROLES = [ROLES.slice(0, 2), ROLES.slice(2, 4), ROLES.slice(4, 6)];
 // materias en chips (opcionales) y, para abogados, la matrícula (opcional).
 export default function Area() {
   const { top } = useSafeAreaInsets();
-  const { area, guardarArea } = useBorradorOnboarding();
+  const { perfil, area, guardarArea } = useBorradorOnboarding();
 
   // Si vuelve desde el paso 3, encuentra lo que ya había elegido.
   const {
     control,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<DatosArea, unknown, AreaValidada>({
     resolver: zodResolver(esquemaArea),
@@ -51,10 +61,24 @@ export default function Area() {
   });
   const rol = useWatch({ control, name: 'rol' });
 
+  // Al salir hacia atrás (flecha o gesto del sistema) sin tocar Continuar, se
+  // guarda lo elegido si está completo: al volver lo encuentra igual.
+  useEffect(
+    () => () => {
+      const elegido = esquemaArea.safeParse(getValues());
+      if (elegido.success) useBorradorOnboarding.getState().guardarArea(elegido.data);
+    },
+    [getValues],
+  );
+
   const continuar = handleSubmit((datos) => {
     guardarArea(datos);
     router.push('/modo');
   });
+
+  // El borrador vive en memoria: si la app se recargó en este paso, falta el
+  // 1/5 (nombre y @usuario) y hay que empezar por ahí.
+  if (!perfil) return <Redirect href="/perfil" />;
 
   return (
     <PantallaConEsfera
@@ -133,6 +157,7 @@ export default function Area() {
                     placeholder="N.º de matrícula del Foro de Abogados"
                     autoCapitalize="characters"
                     autoCorrect={false}
+                    maxLength={LARGO_MAX_MATRICULA}
                     returnKeyType="done"
                     onSubmitEditing={() => continuar()}
                     value={value}

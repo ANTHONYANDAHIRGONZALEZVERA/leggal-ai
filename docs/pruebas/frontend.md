@@ -43,7 +43,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (201)
+## Pruebas actuales (214)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -297,7 +297,7 @@ prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Cámara bloqueada | Ofrece "Abrir Ajustes" del teléfono |
 | Cámara con permiso | Abre la cámara directo, sin explicación |
 
-### Onboarding 2/5: `src/features/onboarding/__tests__/area-test.tsx` (13)
+### Onboarding 2/5: `src/features/onboarding/__tests__/area-test.tsx` (26)
 Pantalla "¿En qué área te desempeñas?" (F30) y `esquemaArea`.
 | Prueba | Qué asegura |
 |---|---|
@@ -310,9 +310,18 @@ Pantalla "¿En qué área te desempeñas?" (F30) y `esquemaArea`.
 | Sin materias | También avanza (son opcionales) |
 | Matrícula inválida | Con símbolos raros muestra la regla y no avanza |
 | Volver desde 3/5 | Encuentra lo que ya había elegido |
+| Aviso de rol | "Elige tu rol" se va apenas elige uno |
+| Matrícula oculta | Una matrícula inválida de abogado no bloquea si después cambia de rol |
+| Largo de matrícula | El campo no deja escribir más de 30 caracteres |
+| Sin el 1/5 | Si la app se recargó (borrador vacío), vuelve al 1/5 |
+| Salir hacia atrás | Guarda lo elegido aunque no haya tocado Continuar |
+| Salir sin rol | No guarda nada |
 | Flecha | Vuelve al paso 1/5 |
 | Matrícula de otro rol | Se descarta: solo se guarda para abogados |
 | Matrícula vacía | Queda en `null` |
+| Matrículas inválidas (5) | Guion solo, sin números, menos de 3, símbolos y más de 30 caracteres |
+| Matrículas reales | Se aceptan y se guardan en mayúsculas |
+| Orden de materias | Sin repetidas y en el orden de la lista |
 | Valores inventados | Rechaza roles o materias que no existen |
 
 ### Foto de perfil: `src/features/onboarding/__tests__/foto-test.ts` (17)
@@ -379,6 +388,10 @@ Pantalla "¿En qué área te desempeñas?" (F30) y `esquemaArea`.
   matrícula de cualquier rol, los chips dejaron de desmarcarse y la matrícula
   apareció para todos los roles; cada cambio hizo fallar 1 prueba. Luego se
   restauró.
+- 21 nov 2026 (revisión del 2/5): se validó la matrícula con cualquier rol, se
+  dejó de exigir un número, se quitó el límite de 30 al escribir, se quitó la
+  vuelta al 1/5 sin borrador y se dejó de guardar al salir; cada cambio hizo
+  fallar 1 prueba. Luego se restauró.
 
 ## Pendiente
 - Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la

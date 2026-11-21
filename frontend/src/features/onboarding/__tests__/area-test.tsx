@@ -10,13 +10,19 @@ import { esquemaArea } from '../esquemas';
 jest.mock('@/components/icono', () => ({ Icono: () => null }));
 jest.mock('@/components/esfera', () => ({ Esfera: () => null }));
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
-}));
+jest.mock('expo-router', () => {
+  const { Text } = require('react-native');
+  return {
+    router: { push: jest.fn(), back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
+    Redirect: ({ href }: { href: string }) => <Text>{`Redirige a ${href}`}</Text>,
+  };
+});
 
+// Llega desde el 1/5 con el nombre y el @usuario ya en el borrador.
 beforeEach(() => {
   jest.clearAllMocks();
   useBorradorOnboarding.getState().vaciar();
+  useBorradorOnboarding.getState().guardarPerfil({ nombre: 'Ana Pérez', usuario: 'ana.perez' });
 });
 
 const rol = (titulo: string) => screen.getByRole('radio', { name: titulo });
@@ -129,6 +135,67 @@ describe('Onboarding 2/5: ¿En qué área te desempeñas?', () => {
     expect(campoMatricula()).toHaveProp('value', '17-2015-123');
   });
 
+  test('el aviso "Elige tu rol" se va apenas elige uno', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Area />);
+    await user.press(continuar());
+    await screen.findByText('Elige tu rol');
+
+    await user.press(rol('Gerente / Admin.'));
+
+    expect(screen.queryByText('Elige tu rol')).not.toBeOnTheScreen();
+  });
+
+  test('una matrícula inválida escrita como abogado no bloquea si después cambia de rol', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Area />);
+
+    await user.press(rol('Abogado/a'));
+    await user.type(campoMatricula()!, '<<<');
+    await user.press(rol('Contador/a'));
+    await user.press(continuar());
+
+    expect(router.push).toHaveBeenCalledWith('/modo');
+    expect(useBorradorOnboarding.getState().area).toEqual({ rol: 'contador', materias: [], matricula: null });
+  });
+
+  test('el campo de matrícula no deja escribir más de 30 caracteres', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Area />);
+
+    await user.press(rol('Abogado/a'));
+
+    expect(campoMatricula()).toHaveProp('maxLength', 30);
+  });
+
+  test('sin el paso 1/5 en el borrador (app recargada), vuelve al 1/5', async () => {
+    useBorradorOnboarding.getState().vaciar();
+
+    await renderizar(<Area />);
+
+    expect(screen.getByText('Redirige a /perfil')).toBeOnTheScreen();
+    expect(screen.queryByText('Continuar')).not.toBeOnTheScreen();
+  });
+
+  test('al salir hacia atrás sin tocar Continuar, guarda lo elegido', async () => {
+    const user = userEvent.setup();
+    const { unmount } = await renderizar(<Area />);
+
+    await user.press(rol('Estudiante'));
+    await user.press(materia('Familia'));
+    await unmount();
+
+    expect(useBorradorOnboarding.getState().area).toEqual({ rol: 'estudiante', materias: ['familia'], matricula: null });
+  });
+
+  test('al salir sin haber elegido rol no guarda nada', async () => {
+    const { unmount } = await renderizar(<Area />);
+
+    await unmount();
+
+    expect(useBorradorOnboarding.getState().area).toBeNull();
+  });
+
   test('la flecha vuelve al paso 1/5', async () => {
     const user = userEvent.setup();
     await renderizar(<Area />);
@@ -150,6 +217,35 @@ describe('esquemaArea', () => {
 
   test('una matrícula vacía o con espacios queda en null', () => {
     expect(esquemaArea.parse({ rol: 'abogado', materias: [], matricula: '   ' }).matricula).toBeNull();
+  });
+
+  test.each([
+    ['un guion solo', '-'],
+    ['sin números', 'ABC'],
+    ['menos de 3 caracteres', '1'],
+    ['símbolos', '17_2015'],
+    ['más de 30 caracteres', '1'.repeat(31)],
+  ])('rechaza una matrícula de abogado con %s', (_caso, matricula) => {
+    const r = esquemaArea.safeParse({ rol: 'abogado', materias: [], matricula });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]?.path).toEqual(['matricula']);
+  });
+
+  test('acepta matrículas reales y las guarda en mayúsculas', () => {
+    for (const [escrita, guardada] of [
+      ['17-2015-123', '17-2015-123'],
+      ['mat. 1234', 'MAT. 1234'],
+      ['09/2020/55', '09/2020/55'],
+    ]) {
+      expect(esquemaArea.parse({ rol: 'abogado', materias: [], matricula: escrita }).matricula).toBe(guardada);
+    }
+  });
+
+  test('las materias salen sin repetir y en el orden de la lista', () => {
+    expect(esquemaArea.parse({ rol: 'otro', materias: ['penal', 'laboral', 'penal'], matricula: '' }).materias).toEqual([
+      'laboral',
+      'penal',
+    ]);
   });
 
   test('rechaza roles o materias que no existen', () => {
