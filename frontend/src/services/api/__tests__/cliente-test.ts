@@ -360,3 +360,42 @@ describe('crearClienteApi: sin renovar (cerrar sesión)', () => {
     expect(alExpirarSesion).not.toHaveBeenCalled();
   });
 });
+
+describe('crearClienteApi: renovar al abrir la app', () => {
+  test('sin sesión guardada no pregunta nada al servidor', async () => {
+    const { cliente, transporte } = armar();
+
+    await expect(cliente.renovarAlAbrir()).resolves.toBe('sin-sesion');
+    expect(transporte).not.toHaveBeenCalled();
+  });
+
+  test('si el refresh responde bien, guarda los tokens nuevos', async () => {
+    const { cliente, transporte, sesion } = armar({ tokens: TOKENS, responder: () => respuesta(200, REFRESH_OK) });
+
+    await expect(cliente.renovarAlAbrir()).resolves.toBe('renovada');
+    expect(transporte.mock.calls.map(([url]) => url.replace(URL_BASE, ''))).toEqual([RUTA_REFRESH]);
+    expect(sesion()).toEqual(TOKENS_NUEVOS);
+  });
+
+  test('si el servidor rechaza la sesión (401), la cierra', async () => {
+    const { cliente, alExpirarSesion } = armar({
+      tokens: TOKENS,
+      responder: () => respuesta(401, { codigo: 'SESION_REVOCADA' }),
+    });
+
+    await expect(cliente.renovarAlAbrir()).resolves.toBe('cerrada');
+    expect(alExpirarSesion).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    ['sin red', () => Promise.reject(new TypeError('Network request failed'))],
+    ['servidor caído (503)', () => respuesta(503, { codigo: 'ERROR_INTERNO' })],
+    ['demasiados intentos (429)', () => respuesta(429, { codigo: 'DEMASIADOS_INTENTOS' })],
+  ])('%s: conserva la sesión guardada', async (_caso, responder) => {
+    const { cliente, alExpirarSesion, sesion } = armar({ tokens: TOKENS, responder });
+
+    await expect(cliente.renovarAlAbrir()).resolves.toBe('pendiente');
+    expect(alExpirarSesion).not.toHaveBeenCalled();
+    expect(sesion()).toEqual(TOKENS);
+  });
+});

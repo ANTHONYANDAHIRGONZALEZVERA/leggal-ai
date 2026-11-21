@@ -5,6 +5,7 @@ import { Text } from 'react-native';
 import RootLayout from '@/app/_layout';
 import Entrada from '@/app/index';
 import { sesionDePrueba } from '@/pruebas/sesion';
+import { api } from '@/services/api';
 import { useSesion } from '@/services/sesion';
 
 // Navegación según la sesión (F10), con el enrutador real de Expo Router y el
@@ -36,7 +37,13 @@ const rutas = {
 
 const sesion = (onboardingCompleto: boolean) => sesionDePrueba({ usuario: { onboardingCompleto } });
 
-beforeEach(() => useSesion.getState().cerrar());
+/** Lo que responde el servidor al refresh de la apertura (por defecto, que todo sigue igual). */
+const renovarAlAbrir = jest.spyOn(api, 'renovarAlAbrir');
+
+beforeEach(() => {
+  useSesion.getState().cerrar();
+  renovarAlAbrir.mockReset().mockResolvedValue('renovada');
+});
 
 describe('Navegación según la sesión', () => {
   test('sin sesión, la app abre en el Splash', async () => {
@@ -109,5 +116,60 @@ describe('Navegación según la sesión', () => {
 
     expect(await screen.findByText('Inicio')).toBeOnTheScreen();
     expect(screen.queryByText('Login')).not.toBeOnTheScreen();
+  });
+});
+
+describe('Navegación: sesión confirmada con el servidor al abrir', () => {
+  test('pregunta una vez por la sesión guardada antes de mostrar la app', async () => {
+    useSesion.getState().iniciar(sesion(true));
+
+    await renderRouter(rutas);
+
+    await screen.findByText('Inicio');
+    expect(renovarAlAbrir).toHaveBeenCalledTimes(1);
+  });
+
+  test('si el servidor ya cerró la sesión, abre en el Splash y no se ve Inicio', async () => {
+    useSesion.getState().iniciar(sesion(true));
+    let responder = () => {};
+    renovarAlAbrir.mockImplementation(
+      () =>
+        new Promise((resolver) => {
+          responder = () => {
+            useSesion.getState().cerrar();
+            resolver('cerrada');
+          };
+        }),
+    );
+
+    await renderRouter(rutas);
+    // Mientras el servidor no responde, sigue el splash: Inicio no se ve ni un instante.
+    expect(screen.queryByText('Inicio')).not.toBeOnTheScreen();
+    await act(async () => responder());
+
+    expect(await screen.findByText('Splash')).toBeOnTheScreen();
+    expect(screen.queryByText('Inicio')).not.toBeOnTheScreen();
+  });
+
+  test('si el onboarding se terminó en otro dispositivo, abre en Inicio y no en el paso 1/5', async () => {
+    useSesion.getState().iniciar(sesion(false));
+    renovarAlAbrir.mockImplementation(async () => {
+      useSesion.getState().iniciar(sesion(true));
+      return 'renovada';
+    });
+
+    await renderRouter(rutas);
+
+    expect(await screen.findByText('Inicio')).toBeOnTheScreen();
+    expect(screen.queryByText('Perfil')).not.toBeOnTheScreen();
+  });
+
+  test('sin red, entra igual con la sesión guardada', async () => {
+    useSesion.getState().iniciar(sesion(true));
+    renovarAlAbrir.mockResolvedValue('pendiente');
+
+    await renderRouter(rutas);
+
+    expect(await screen.findByText('Inicio')).toBeOnTheScreen();
   });
 });

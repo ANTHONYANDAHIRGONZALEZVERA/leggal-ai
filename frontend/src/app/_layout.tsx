@@ -6,20 +6,23 @@ import { useEffect, useState } from 'react';
 
 import { crearClienteConsultas } from '@/services/consultas';
 import { useAcceso, useSesionLeida } from '@/services/sesion';
+import { useSesionAlDia } from '@/services/sesion-al-abrir';
 import { colors, fuentes } from '@/theme';
 
 // La pantalla de carga nativa se mantiene hasta tener las fuentes y la sesión
-// guardada: así no se ve un instante la fuente del sistema ni el Login a
-// alguien que ya había iniciado sesión.
+// guardada y confirmada con el servidor: así no se ve un instante la fuente
+// del sistema, ni el Login a quien ya había entrado, ni el Inicio a quien
+// tiene la sesión cerrada desde otro lado.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [fuentesCargadas, errorFuentes] = useFonts(fuentes);
   const sesionLeida = useSesionLeida();
+  const sesionAlDia = useSesionAlDia(sesionLeida);
   // Un solo cliente de consultas durante toda la vida de la app.
   const [clienteConsultas] = useState(crearClienteConsultas);
   // Si una fuente falla se sigue con la del sistema en vez de bloquear la app.
-  const listo = (fuentesCargadas || errorFuentes !== null) && sesionLeida;
+  const listo = (fuentesCargadas || errorFuentes !== null) && sesionAlDia;
 
   useEffect(() => {
     if (listo) SplashScreen.hide();

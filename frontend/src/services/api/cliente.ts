@@ -105,6 +105,26 @@ export function crearClienteApi(o: OpcionesCliente) {
     return o.obtenerTokens()?.acceso;
   }
 
+  /**
+   * Al abrir la app con una sesión guardada (contrato B03, "Flujo esperado en
+   * la app"): se pide un refresh para saber si la sesión sigue viva y traer el
+   * usuario al día.
+   * - renovada: tokens y usuario nuevos guardados.
+   * - cerrada: el servidor la rechazó (401) y se cerró: va al Login.
+   * - pendiente: sin red, 5xx o 429; se conserva la sesión y se vuelve a
+   *   intentar sola en la próxima petición privada.
+   */
+  async function renovarAlAbrir(): Promise<'sin-sesion' | 'renovada' | 'cerrada' | 'pendiente'> {
+    if (!o.obtenerTokens()) return 'sin-sesion';
+    try {
+      if (await renovar()) return 'renovada';
+      o.alExpirarSesion();
+      return 'cerrada';
+    } catch {
+      return 'pendiente';
+    }
+  }
+
   async function peticion<T>(ruta: string, opciones: Peticion = {}): Promise<T> {
     let token = opciones.publica ? undefined : o.obtenerTokens()?.acceso;
     // Si al token le queda menos de un minuto, se renueva antes de usarlo:
@@ -127,7 +147,7 @@ export function crearClienteApi(o: OpcionesCliente) {
     return resultado.datos as T;
   }
 
-  return { peticion };
+  return { peticion, renovarAlAbrir };
 }
 
 function codigoDe(datos: unknown) {

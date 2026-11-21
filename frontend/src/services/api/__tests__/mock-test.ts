@@ -256,3 +256,27 @@ describe('API simulada: @usuario (F30)', () => {
     expect(await sugerencias('   ')).toEqual([]);
   });
 });
+
+describe('API simulada: recargar la app', () => {
+  // El mock olvida las sesiones al recargar (reiniciarMock hace lo mismo); el
+  // backend real no. Un refresco de una ejecución anterior sigue sirviendo.
+  test('un tokenRefresco de antes de recargar sigue sirviendo, una sola vez', async () => {
+    const { datos } = await entrarDemo();
+    reiniciarMock();
+
+    const r = await post('/auth/refresh', { tokenRefresco: datos.tokenRefresco });
+    expect(r.estado).toBe(200);
+    expect(r.datos.usuario.id).toBe('usr-demo');
+
+    const repetido = await post('/auth/refresh', { tokenRefresco: datos.tokenRefresco });
+    expect(repetido).toMatchObject({ estado: 401, datos: { codigo: 'SESION_REVOCADA' } });
+  });
+
+  test('si la cuenta ya no existe (registrada antes de recargar), responde REFRESCO_INVALIDO', async () => {
+    const { datos } = await post('/auth/register', REGISTRO);
+    reiniciarMock();
+
+    const r = await post('/auth/refresh', { tokenRefresco: datos.tokenRefresco });
+    expect(r).toMatchObject({ estado: 401, datos: { codigo: 'REFRESCO_INVALIDO' } });
+  });
+});

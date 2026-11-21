@@ -34,6 +34,12 @@ let sesiones = new Map<string, { usuarioId: string; revocada: boolean }>();
 /** Token de refresco → su sesión y si ya se usó (rota en cada uso). */
 let refrescos = new Map<string, { sid: string; usado: boolean }>();
 let contador = 0;
+/**
+ * Marca de esta ejecución del mock. Va dentro de cada token de refresco para
+ * reconocer los de una ejecución anterior (ver recordarRefresco).
+ */
+let arranque = '';
+let reinicios = 0;
 
 // @usuarios ya tomados por otras personas (además de los reservados del sistema).
 const USUARIOS_TOMADOS = ['admin', 'soporte', 'leggal', 'accons', 'usuario.demo', 'andrea.ruiz'];
@@ -66,6 +72,8 @@ export function reiniciarMock() {
   sesiones = new Map();
   refrescos = new Map();
   contador = 0;
+  reinicios += 1;
+  arranque = `${Date.now().toString(36)}${reinicios}`;
   usuariosTomados = new Set(USUARIOS_TOMADOS);
 }
 reiniciarMock();
@@ -108,7 +116,7 @@ function publico({ contrasena: _contrasena, ...usuario }: UsuarioSimulado): Usua
 /** Respuesta de sesión del contrato, con un refresco nuevo para esa sesión. */
 function respuestaSesion(usuario: UsuarioSimulado, sid: string) {
   contador += 1;
-  const tokenRefresco = `mock-refresco-${contador}`;
+  const tokenRefresco = `mock-refresco.${arranque}.${usuario.id}.${contador}`;
   refrescos.set(tokenRefresco, { sid, usado: false });
   return {
     tokenAcceso: tokenDeAcceso(usuario.id, sid),
@@ -125,6 +133,21 @@ function abrirSesion(usuario: UsuarioSimulado) {
 }
 
 const usuarioPorId = (id: string) => [...usuarios.values()].find((u) => u.id === id);
+
+/**
+ * El mock guarda las sesiones en memoria y las olvida al recargar la app; el
+ * backend real las guarda en su base. Para no sacar a la persona en cada
+ * recarga, un refresco de una ejecución anterior se acepta si su dueño todavía
+ * existe (las cuentas creadas con el registro también se olvidan al recargar).
+ */
+function recordarRefresco(token: string) {
+  const [prefijo, deArranque, usuarioId] = token.split('.');
+  const usuario = usuarioPorId(usuarioId ?? '');
+  if (prefijo !== 'mock-refresco' || deArranque === arranque || !usuario || refrescos.has(token)) return;
+  const sid = `ses-${sesiones.size + 1}`;
+  sesiones.set(sid, { usuarioId: usuario.id, revocada: false });
+  refrescos.set(token, { sid, usado: false });
+}
 
 /** Dueño y sesión del token de acceso, si tiene la forma del contrato y no venció. */
 function leerToken(cabeceras: Record<string, string>) {
@@ -209,6 +232,7 @@ const rutas: Record<string, Manejador> = {
   },
 
   [`POST ${RUTAS_AUTH.refresh}`]: ({ tokenRefresco }) => {
+    recordarRefresco(texto(tokenRefresco));
     const refresco = refrescos.get(texto(tokenRefresco));
     const sesion = refresco && sesiones.get(refresco.sid);
     const usuario = sesion && usuarioPorId(sesion.usuarioId);
