@@ -6,6 +6,11 @@
 > contrato en `docs/api/` manda y este archivo se borra.
 
 ## Qué hace hoy la app
+- Al enviar una solicitud con código (4/5), si la persona todavía no decidió el
+  permiso, se le ofrecen los avisos ("Te avisamos cuando ACCONS S.A.S. apruebe
+  tu solicitud"). **Nunca es obligatorio**: con "Ahora no" la solicitud sigue
+  enviada (regla 4.5.4 de la App Store). En "Solicitud enviada", sin permiso,
+  se ofrece "Activar" (o "Abrir Ajustes" si quedó bloqueado).
 - En el onboarding 5/5 la persona activa "Plazos y audiencias" o "Resumen
   diario". Antes del aviso del sistema se muestra la pantalla de permiso del
   diseño (PermisoSistema).

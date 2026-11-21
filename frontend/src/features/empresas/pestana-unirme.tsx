@@ -1,17 +1,21 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Modal, View } from 'react-native';
 
 import { Aparecer } from '@/components/aparecer';
 import { AvisoError } from '@/components/aviso-error';
 import { Boton } from '@/components/boton';
 import { CampoCodigo } from '@/components/campo-codigo';
+import { PantallaPermiso } from '@/components/pantalla-permiso';
 import { Presionable } from '@/components/presionable';
 import { TarjetaEmpresa } from '@/components/tarjeta-empresa';
 import { Texto } from '@/components/texto';
+import { consultarPermisoNotificaciones, pedirPermisoNotificaciones } from '@/features/notificaciones/permiso';
+import { PUNTOS_NOTIFICACIONES } from '@/features/notificaciones/puntos';
 import { useBorradorOnboarding } from '@/features/onboarding/borrador';
 import { colors, fontFamily, spacing } from '@/theme';
+import { conPunto } from '@/utils/texto';
 
 import { claveVistaPrevia, consultarCodigo, solicitarAcceso } from './api';
 import { codigoConGuion, LARGO_CODIGO } from './esquemas';
@@ -23,6 +27,8 @@ import { codigoConGuion, LARGO_CODIGO } from './esquemas';
 export function PestanaUnirme() {
   const { solicitud, guardarSolicitud } = useBorradorOnboarding();
   const [codigo, setCodigo] = useState('');
+  /** Empresa a la que se pidió acceso, mientras se ofrece activar los avisos. */
+  const [ofrecerAvisos, setOfrecerAvisos] = useState<string | null>(null);
   const completo = codigo.length === LARGO_CODIGO;
 
   // Una consulta por código: no se reintenta sola, porque cada intento cuenta
@@ -37,12 +43,26 @@ export function PestanaUnirme() {
 
   const solicitar = useMutation({
     mutationFn: () => solicitarAcceso(codigoConGuion(codigo)),
-    onSuccess: (nueva) => {
+    onSuccess: async (nueva) => {
       guardarSolicitud(nueva);
       // Si la empresa no pide aprobación ya es miembro: sigue al 5/5.
-      router.push(nueva.estado === 'aprobada' ? '/preferencias' : '/solicitud');
+      if (nueva.estado === 'aprobada') return router.push('/preferencias');
+      // Es el mejor momento para ofrecer los avisos: lo que espera es la
+      // aprobación. Solo si aún se puede preguntar; nunca es obligatorio.
+      if ((await consultarPermisoNotificaciones().catch(() => null)) === 'preguntar') {
+        setOfrecerAvisos(nueva.empresa.nombre);
+      } else {
+        router.push('/solicitud');
+      }
     },
   });
+
+  /** Con o sin permiso, la solicitud ya se envió: sigue a "Solicitud enviada". */
+  async function cerrarAvisos(pedir: boolean) {
+    if (pedir) await pedirPermisoNotificaciones().catch(() => null);
+    setOfrecerAvisos(null);
+    router.push('/solicitud');
+  }
 
   function cambiarCodigo(nuevo: string) {
     setCodigo(nuevo);
@@ -114,6 +134,23 @@ export function PestanaUnirme() {
           onPress={() => solicitar.mutate()}
         />
       </View>
+
+      <Modal
+        visible={ofrecerAvisos !== null}
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => void cerrarAvisos(false)}>
+        <PantallaPermiso
+          icono="campana"
+          titulo="Activa las"
+          destacado="notificaciones"
+          descripcion={conPunto(`Te avisamos cuando ${ofrecerAvisos ?? 'tu empresa'} apruebe tu solicitud`)}
+          puntos={PUNTOS_NOTIFICACIONES}
+          textoPermitir="Permitir notificaciones"
+          onPermitir={() => void cerrarAvisos(true)}
+          onAhoraNo={() => void cerrarAvisos(false)}
+        />
+      </Modal>
     </>
   );
 }

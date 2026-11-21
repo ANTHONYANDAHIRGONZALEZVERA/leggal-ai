@@ -14,12 +14,13 @@ import { BotonVolver } from '@/components/boton-volver';
 import { Esfera } from '@/components/esfera';
 import type { NombreIcono } from '@/components/icono';
 import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
-import { PantallaPermiso, type PuntoPermiso } from '@/components/pantalla-permiso';
+import { PantallaPermiso } from '@/components/pantalla-permiso';
 import { SelectorPestanas } from '@/components/selector-pestanas';
 import { TarjetaOpcion } from '@/components/tarjeta-opcion';
 import { Texto } from '@/components/texto';
 import { TituloDestacado } from '@/components/titulo-destacado';
 import { consultarPermisoNotificaciones, pedirPermisoNotificaciones } from '@/features/notificaciones/permiso';
+import { PUNTOS_NOTIFICACIONES } from '@/features/notificaciones/puntos';
 import { useBorradorOnboarding } from '@/features/onboarding/borrador';
 import { enviarOnboarding } from '@/features/onboarding/envio';
 import {
@@ -47,13 +48,6 @@ type Aviso = 'plazos' | 'resumenDiario';
 const AVISOS: { campo: Aviso; titulo: string; detalle: string }[] = [
   { campo: 'plazos', titulo: 'Plazos y audiencias', detalle: 'Recordatorios antes de cada vencimiento' },
   { campo: 'resumenDiario', titulo: 'Resumen diario', detalle: 'Actividad de tus casos cada mañana' },
-];
-
-// Para qué son las notificaciones, antes de pedir el permiso (diseño PermisoSistema).
-const PUNTOS_NOTIFICACIONES: PuntoPermiso[] = [
-  { icono: 'reloj', texto: 'Plazos y audiencias antes de que venzan', fondo: '#ECE7FF', color: colors.acento },
-  { icono: 'check', texto: 'Cuando te aprueben en tu empresa', fondo: '#DDF4F6', color: colors.verdeAzuladoOscuro },
-  { icono: 'escudo', texto: 'Puedes desactivarlas en Ajustes', fondo: '#FFF1DC', color: '#A15C00' },
 ];
 
 /** Si el sistema falla al consultar o pedir el permiso (no debería, pero no hay que trabarse). */
