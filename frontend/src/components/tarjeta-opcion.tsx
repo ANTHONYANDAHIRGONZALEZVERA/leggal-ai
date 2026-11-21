@@ -14,15 +14,18 @@ type Props = {
   color: string;
   seleccionada: boolean;
   onPress: () => void;
+  /** Si se pueden elegir varias (casilla) en vez de una sola (radio). */
+  multiple?: boolean;
 };
 
 // Tarjeta de "Tu rol" (onboarding 2/5): ícono en un cuadrito de color y el
-// título. Al elegirla, borde morado con halo suave. Se elige una sola: radio.
-export function TarjetaOpcion({ titulo, icono, fondo, color, seleccionada, onPress }: Props) {
+// título. Al elegirla, borde morado con halo suave. Una sola (radio) en
+// "Tu rol" del 2/5; varias (casilla) en los usos del 5/5.
+export function TarjetaOpcion({ titulo, icono, fondo, color, seleccionada, onPress, multiple }: Props) {
   return (
     <Presionable
       onPress={onPress}
-      accessibilityRole="radio"
+      accessibilityRole={multiple ? 'checkbox' : 'radio'}
       accessibilityState={{ checked: seleccionada }}
       accessibilityLabel={titulo}
       style={{

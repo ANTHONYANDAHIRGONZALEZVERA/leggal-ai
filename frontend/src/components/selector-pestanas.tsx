@@ -9,15 +9,27 @@ type Props<T extends string> = {
   opciones: readonly { valor: T; titulo: string }[];
   valor: T;
   onCambiar: (valor: T) => void;
+  /** Pestañas (cambian el contenido, 4/5) u opciones de un grupo (5/5). */
+  tipo?: 'pestanas' | 'opciones';
+  /** Nombre del grupo para el lector de pantalla. */
+  accessibilityLabel?: string;
 };
 
 // Pestañas del 4/5 ("Unirme con código" / "Crear empresa"): fondo lavanda y
 // la activa en blanco con sombra suave. Cambian al instante, sin deslizar:
 // son pares, no niveles, y se tocan seguido.
-export function SelectorPestanas<T extends string>({ opciones, valor, onCambiar }: Props<T>) {
+export function SelectorPestanas<T extends string>({
+  opciones,
+  valor,
+  onCambiar,
+  tipo = 'pestanas',
+  accessibilityLabel,
+}: Props<T>) {
+  const esGrupo = tipo === 'opciones';
   return (
     <View
-      accessibilityRole="tablist"
+      accessibilityRole={esGrupo ? 'radiogroup' : 'tablist'}
+      accessibilityLabel={accessibilityLabel}
       style={{
         flexDirection: 'row',
         gap: 4,
@@ -31,8 +43,8 @@ export function SelectorPestanas<T extends string>({ opciones, valor, onCambiar 
         return (
           <Presionable
             key={opcion.valor}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activa }}
+            accessibilityRole={esGrupo ? 'radio' : 'tab'}
+            accessibilityState={esGrupo ? { checked: activa } : { selected: activa }}
             onPress={() => onCambiar(opcion.valor)}
             style={{
               flex: 1,

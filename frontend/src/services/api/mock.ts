@@ -1,3 +1,4 @@
+import { esquemaUsuario } from '@/features/onboarding/usuario';
 import { quitarAcentos } from '@/utils/texto';
 
 import type { RespuestaTransporte, Transporte } from './cliente';
@@ -201,6 +202,26 @@ const rutasPrivadas: Record<string, ManejadorPrivado> = {
   'GET /usuarios/disponible': ({ usuario }) =>
     responder(200, { usuario, disponible: !usuariosTomados.has(texto(usuario)) }),
   'GET /usuarios/sugerencias': ({ nombre }) => responder(200, { sugerencias: sugerenciasPara(texto(nombre)) }),
+  // Envío final del onboarding (B34): datos de los 5 pasos; queda completo.
+  'PATCH /users/me/onboarding': (cuerpo, persona) => {
+    const nombreVisible = texto(cuerpo.nombreVisible).trim();
+    const nombreUsuario = texto(cuerpo.nombreUsuario);
+    const perfil = cuerpo.perfilProfesional as { rol?: unknown } | undefined;
+    const preferencias = cuerpo.preferencias as { usos?: unknown[] } | undefined;
+    const campos: Record<string, string> = {};
+    if (nombreVisible.length < 3) campos.nombreVisible = 'Ingresa tu nombre';
+    if (!esquemaUsuario.safeParse(nombreUsuario).success) campos.nombreUsuario = 'Nombre de usuario inválido';
+    if (typeof perfil?.rol !== 'string') campos.perfilProfesional = 'Falta el rol';
+    if (cuerpo.modo !== 'personal' && cuerpo.modo !== 'colaborativo') campos.modo = 'Modo inválido';
+    if (!preferencias?.usos?.length) campos.preferencias = 'Elige al menos un uso';
+    if (Object.keys(campos).length > 0) return fallar(400, 'VALIDACION', 'Revisa los datos.', campos);
+    if (usuariosTomados.has(nombreUsuario) && persona.nombreUsuario !== nombreUsuario) {
+      return fallar(409, 'USUARIO_EN_USO', 'Ese nombre de usuario ya está en uso.');
+    }
+    usuariosTomados.add(nombreUsuario);
+    Object.assign(persona, { nombreVisible, nombreUsuario, onboardingCompleto: true });
+    return responder(200, { usuario: publico(persona) });
+  },
 };
 
 const rutas: Record<string, Manejador> = {
