@@ -34,7 +34,7 @@ workflow deja un comentario con el error.
 ## Qué se reemplaza en las pruebas (y por qué)
 | Qué | Por qué |
 |---|---|
-| `Icono`, `Esfera`, `Ondas`, `Anillo` | Se dibujan con Skia, un motor gráfico nativo que no existe en Jest. Son decoración y no cambian el comportamiento. |
+| `Icono`, `Esfera`, `Ondas`, `Anillo`, ilustraciones del 3/5 | Se dibujan con Skia, un motor gráfico nativo que no existe en Jest. Son decoración y no cambian el comportamiento. |
 | `expo-router` (`router`, `Link`) | La navegación real necesita todo el árbol de rutas; basta comprobar a dónde intenta ir la pantalla. |
 | `react-native-safe-area-context` | Usa el mock oficial de la librería (márgenes del teléfono con valores fijos). |
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
@@ -43,7 +43,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (214)
+## Pruebas actuales (225)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -324,6 +324,22 @@ Pantalla "¿En qué área te desempeñas?" (F30) y `esquemaArea`.
 | Orden de materias | Sin repetidas y en el orden de la lista |
 | Valores inventados | Rechaza roles o materias que no existen |
 
+### Onboarding 3/5: `src/features/onboarding/__tests__/modo-test.tsx` (11)
+Pantalla "¿Cómo vas a trabajar?" (F31).
+| Prueba | Qué asegura |
+|---|---|
+| Empieza vacío | Sin modo elegido; Colaborativo muestra Multiempresa, Trazabilidad y Roles |
+| Sin elegir | No avanza y pide "Elige cómo vas a trabajar"; el aviso se va al elegir |
+| Uno solo | Elegir otro desmarca el anterior |
+| Personal | Se salta el 4/5 y va al 5/5 |
+| Colaborativo | Sigue al 4/5 (unirse o crear empresa) |
+| Volver desde el siguiente | Encuentra lo que ya había elegido |
+| Salir hacia atrás | Guarda lo elegido aunque no haya tocado Continuar |
+| Salir sin elegir | No guarda nada |
+| Sin el 1/5 | Vuelve al 1/5 |
+| Sin el 2/5 | Vuelve al 2/5 |
+| Flecha | Vuelve al paso 2/5 |
+
 ### Foto de perfil: `src/features/onboarding/__tests__/foto-test.ts` (17)
 `revisarFoto`, `elegirFoto` y el permiso de cámara (onboarding 1/5).
 | Prueba | Qué asegura |
@@ -392,6 +408,9 @@ Pantalla "¿En qué área te desempeñas?" (F30) y `esquemaArea`.
   dejó de exigir un número, se quitó el límite de 30 al escribir, se quitó la
   vuelta al 1/5 sin borrador y se dejó de guardar al salir; cada cambio hizo
   fallar 1 prueba. Luego se restauró.
+- 21 nov 2026 (onboarding 3/5): Personal dejó de saltarse el 4/5, se quitó la
+  vuelta al 2/5 y se dejó de guardar al salir (falló 1 prueba cada vez); se
+  dejó Colaborativo elegido de entrada y fallaron 3. Luego se restauró.
 
 ## Pendiente
 - Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la

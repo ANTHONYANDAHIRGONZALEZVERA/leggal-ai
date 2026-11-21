@@ -27,6 +27,15 @@ que manda la app:
   caracteres con letras, números, espacios, puntos, guiones o barras, al
   menos un número, en mayúsculas. El backend debe revisarla igual.
 
+## Paso 3/5: modo de trabajo (F31)
+- `modo` (obligatorio): `personal` o `colaborativo`. Se envía al final con el
+  resto (B34).
+- Con `personal` la app se salta el 4/5. Según el plan (B35), el backend crea
+  una empresa de tipo `personal` con un solo miembro (`POST /tenants`), para
+  que todo funcione igual con `tenant_id`.
+- Con `colaborativo` sigue al 4/5 "Conéctate a tu empresa" (F33): unirse con
+  código o crear una empresa.
+
 ## `GET /usuarios/disponible?usuario=<texto>` (F30)
 Revisa si un @usuario está libre. La app solo consulta textos con formato
 válido (3 a 30 caracteres; letras minúsculas, números, punto y guion bajo;
