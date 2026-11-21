@@ -40,10 +40,11 @@ workflow deja un comentario con el error.
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | `@expo/ui` | Dibuja vistas nativas (SwiftUI / Compose) que en Jest quedan como cajas vacías sin texto. `jest.setup.ts` lo reemplaza: la hoja muestra su contenido solo si está abierta y los botones se pueden tocar. |
+| `Alert.alert` | El diálogo nativo no existe en Jest: las pruebas lo espían y "tocan" el botón que corresponde (por ejemplo, "Sí, cancelar"). |
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (225)
+## Pruebas actuales (291)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -340,6 +341,61 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 | Sin el 2/5 | Vuelve al 2/5 |
 | Flecha | Vuelve al paso 2/5 |
 
+### Onboarding 4/5: `src/features/empresas/__tests__/empresa-test.tsx` (17)
+Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión real.
+| Prueba | Qué asegura |
+|---|---|
+| Al abrir | Pestaña "Unirme con código"; sin QR, enlace ni aviso de dominio (fuera del plan); Solicitar desactivado |
+| Código completo | Con 6 caracteres muestra empresa, verificada, rol y "Requiere aprobación" |
+| Pegar | " acc-7k2 " queda ACC7K2 y busca la empresa |
+| Código inexistente | Lo avisa y no deja solicitar |
+| Código vencido | Pide uno nuevo |
+| Borrar un carácter | La empresa desaparece y vuelve a pedir el código completo |
+| Solicitar acceso | Envía la solicitud, la guarda y pasa a "Solicitud enviada" |
+| Solicitud pendiente | Lo avisa y deja verla |
+| Pedir otra vez | Avisa que ya hay una solicitud |
+| Pestaña Crear | Razón social, RUC, tamaño y el aviso de administrador |
+| Crear vacío | Pide cada dato |
+| RUC | Solo dígitos, hasta 13 |
+| Crear empresa | La crea, guarda la sesión cuyo token trae la empresa y pasa al 5/5 |
+| RUC registrado | Se avisa debajo del campo |
+| Ya creada | Al volver no la crea otra vez: solo deja continuar |
+| Pasos anteriores (2) | Sin el 1/5 vuelve al 1/5; en modo Personal vuelve al 3/5 |
+
+### Solicitud enviada: `src/features/empresas/__tests__/solicitud-test.tsx` (7)
+| Prueba | Qué asegura |
+|---|---|
+| Datos | Empresa, rol y la línea de estado (código validado, revisión en curso, acceso pendiente) |
+| Modo personal | Sigue al 5/5 y la solicitud queda pendiente |
+| Cancelar: No | Pide confirmación y con "No" no cancela |
+| Cancelar: Sí | La cancela en el servidor, la borra del borrador y vuelve al 4/5; luego se puede volver a pedir |
+| Aprobada | Lo muestra, ya no ofrece cancelar y deja continuar |
+| Rechazada | Lo muestra y ya no ofrece cancelar |
+| Sin solicitud | Vuelve al 4/5 |
+
+### Reglas de empresas: `src/features/empresas/__tests__/esquemas-test.ts` (25)
+| Prueba | Qué asegura |
+|---|---|
+| Código (6) | Mayúsculas, sin guion ni espacios, máximo 6; con guion como lo genera el backend |
+| RUC válidos (5) | Sociedad privada, persona natural, pública, otro establecimiento y exterior (30) |
+| RUC inválidos (8) | Menos de 13, letras, provincia 00 o 25, tercer dígito 7 u 8, termina en 000 |
+| Empresa (6) | Acepta datos completos; rechaza sin razón social, solo símbolos, RUC inválido o tamaño faltante o inventado |
+
+### API simulada de empresas: `src/services/api/__tests__/mock-empresas-test.ts` (14)
+Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
+| Prueba | Qué asegura |
+|---|---|
+| Vista previa | Empresa, rol y aprobación sin canjear; acepta minúsculas o sin guion |
+| Errores del código | 404 `CODIGO_INVALIDO`, 410 `CODIGO_VENCIDO` y sin sesión 401 |
+| Límite | Después de 5 intentos en la hora, 429 `DEMASIADOS_INTENTOS` |
+| Canjear | Crea la solicitud en espera con el código con guion y sin datos internos |
+| Duplicada | 409 `SOLICITUD_EXISTENTE` |
+| Mis solicitudes | Devuelve las de la persona con su estado al día |
+| Cancelar | Queda cancelada, es idempotente, 404 si no existe, y se puede volver a pedir |
+| Crear empresa | Sesión nueva cuyo token trae el `tid` de la empresa |
+| RUC en uso | 409 `RUC_EN_USO` |
+| Validación | 400 `VALIDACION` señalando cada campo |
+
 ### Foto de perfil: `src/features/onboarding/__tests__/foto-test.ts` (17)
 `revisarFoto`, `elegirFoto` y el permiso de cámara (onboarding 1/5).
 | Prueba | Qué asegura |
@@ -367,8 +423,8 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 | Otros símbolos | No se admiten ("-", "!") |
 | Símbolos seguidos o al final | No se admiten |
 
-### Texto: `src/utils/__tests__/texto-test.ts` (6)
-`quitarAcentos` e `iniciales` (F30).
+### Texto: `src/utils/__tests__/texto-test.ts` (9)
+`quitarAcentos`, `iniciales` (F30) y `conPunto` (F33).
 | Prueba | Qué asegura |
 |---|---|
 | Quitar acentos | Tildes, diéresis y ñ |
@@ -377,6 +433,7 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 | Un nombre | Una letra |
 | Espacios de más | Se ignoran y sale en mayúsculas |
 | Vacío | Devuelve vacío |
+| Cerrar con punto (3) | Agrega el punto final sin duplicarlo ("ACCONS S.A.S." no queda "S.A.S..") ni tras "?" |
 
 ## Comprobación de que las pruebas sirven
 - 15 nov 2026 (F13): se quitó a propósito la regla de la casilla obligatoria y
@@ -411,6 +468,10 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 - 21 nov 2026 (onboarding 3/5): Personal dejó de saltarse el 4/5, se quitó la
   vuelta al 2/5 y se dejó de guardar al salir (falló 1 prueba cada vez); se
   dejó Colaborativo elegido de entrada y fallaron 3. Luego se restauró.
+- 21 nov 2026 (onboarding 4/5 y Solicitud enviada): Solicitar acceso activo sin
+  vista previa (fallaron 3), sin limpiar lo pegado (7), sin guardar la sesión
+  con la empresa (1), sin la vuelta al 3/5 en modo Personal (1), cancelar sin
+  confirmar (1) e ignorar el estado del servidor (2). Luego se restauró.
 
 ## Pendiente
 - Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la
