@@ -64,7 +64,7 @@ En los jobs `frontend` y `backend` (corren a la vez, en las dos carpetas siempre
 | Paso | frontend | backend |
 |---|---|---|
 | 1. Clonar el repositorio | `actions/checkout` | `actions/checkout` |
-| 2. Dependencias con el lockfile congelado | `npm ci` | `npm ci` |
+| 2. Dependencias con el lockfile congelado | `npm ci` | `npm ci` y luego `npx prisma generate` (cliente de Prisma) |
 | 3. Pruebas | `npm test -- --ci` | `npm test -- --ci` |
 | 4. Tipos | `npm run tipos` (tsc) | `npx tsc --noEmit` |
 | 5. Estilo | `npm run lint` | — |

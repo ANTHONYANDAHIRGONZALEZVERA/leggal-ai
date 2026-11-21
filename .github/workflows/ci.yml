@@ -3,6 +3,7 @@ name: ci
 # Una sola tubería para las dos carpetas. En cada PR:
 #   1. Clona el repositorio.
 #   2. Instala las dependencias tal cual el package-lock.json (npm ci = frozen lockfile).
+#      En backend además genera el cliente de Prisma.
 #   3. Corre las pruebas.
 #   4. Revisa los tipos con tsc.
 #   5. Hace el build.
@@ -80,6 +81,14 @@ jobs:
 
       - name: Instalar dependencias (lockfile congelado)
         run: npm ci
+
+      # El código importa el cliente de Prisma, que se genera desde el schema y
+      # no se sube al repo. Generarlo no se conecta a la base, pero
+      # prisma.config.ts exige DATABASE_URL: basta una URL de relleno.
+      - name: Generar el cliente de Prisma
+        run: npx prisma generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
 
       - name: Correr pruebas (Jest)
         run: npm test -- --ci
