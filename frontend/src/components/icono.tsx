@@ -15,7 +15,13 @@ const trazos = {
     d: 'M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7c1.7 0 3.2-.4 4.5-1.1',
     grosor: 1.8,
   },
-  candado: { d: 'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3', grosor: 2 },
+  // Roles del onboarding 2/5.
+  portapapeles: { d: 'M9 4h6v3H9zM6 6h12v15H6zM9 12h6M9 16h4', grosor: 2 },
+  calculadora: { d: 'M6 3h12v18H6zM9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01', grosor: 2 },
+  maletin: { d: 'M4 8h16v11H4zM9 8V5h6v3M4 13h16', grosor: 2 },
+  birrete: { d: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5', grosor: 2 },
+  puntos: { d: 'M5 12h.01M12 12h.01M19 12h.01', grosor: 3 },
+  candado: { d:'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3', grosor: 2 },
   escudo: { d: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', grosor: 2 },
   balanza: { d:'M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0zM8 21h8', grosor: 1.8 },
 } as const;
