@@ -85,6 +85,14 @@ Al tocar "Empezar":
 - La foto de perfil todavía no se envía (no hay endpoint:
   [`foto-perfil-propuesta.md`](foto-perfil-propuesta.md)).
 
+### Cambiar las preferencias después (Ajustes, fuera de estas dos semanas)
+Lo que se elige en el 5/5 (usos, canal y notificaciones) se debe poder cambiar
+desde Ajustes. Propuesta para cuando se haga esa pantalla:
+- `GET /users/me/preferencias` → **200** `{ "preferencias": { usos, canal, notificaciones } }`.
+- `PATCH /users/me/preferencias` con solo lo que cambia, por ejemplo
+  `{ "canal": "voz" }`. Mismas reglas que en el onboarding. **200** con las
+  preferencias completas; **400** `VALIDACION` con `campos`.
+
 ## `GET /usuarios/disponible?usuario=<texto>` (F30)
 Revisa si un @usuario está libre. La app solo consulta textos con formato
 válido (3 a 30 caracteres; letras minúsculas, números, punto y guion bajo;

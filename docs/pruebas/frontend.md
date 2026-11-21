@@ -45,7 +45,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (327)
+## Pruebas actuales (341)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -342,7 +342,7 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 | Sin el 2/5 | Vuelve al 2/5 |
 | Flecha | Vuelve al paso 2/5 |
 
-### Onboarding 5/5: `src/features/onboarding/__tests__/preferencias-test.tsx` (16)
+### Onboarding 5/5: `src/features/onboarding/__tests__/preferencias-test.tsx` (18)
 Pantalla "¿Para qué usarás Leggal AI?" (F31) y `esquemaPreferencias`.
 | Prueba | Qué asegura |
 |---|---|
@@ -354,6 +354,7 @@ Pantalla "¿Para qué usarás Leggal AI?" (F31) y `esquemaPreferencias`.
 | Ahora no | Cierra la explicación y queda apagado |
 | Lo niega | Queda apagado |
 | Bloqueado | Ofrece abrir los Ajustes y no lo enciende |
+| Falla del sistema (2) | Si consultar o pedir el permiso falla, lo explica, cierra la explicación y queda apagado; el onboarding sigue |
 | Apagar | No pregunta por el permiso |
 | Empezar | Envía todo y el onboarding queda hecho |
 | Envío falla | Lo avisa y no pierde lo elegido |
@@ -380,7 +381,7 @@ Pantalla "¿Para qué usarás Leggal AI?" (F31) y `esquemaPreferencias`.
 | Android | Crea el canal "avisos" antes de pedir el permiso (Android 13+ lo necesita) |
 | iOS | No crea canales y pide alertas, globo y sonido |
 
-### Onboarding 4/5: `src/features/empresas/__tests__/empresa-test.tsx` (17)
+### Onboarding 4/5: `src/features/empresas/__tests__/empresa-test.tsx` (18)
 Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión real.
 | Prueba | Qué asegura |
 |---|---|
@@ -391,6 +392,7 @@ Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión rea
 | Código vencido | Pide uno nuevo |
 | Borrar un carácter | La empresa desaparece y vuelve a pedir el código completo |
 | Solicitar acceso | Envía la solicitud, la guarda y pasa a "Solicitud enviada" |
+| Acceso inmediato | Con `DIR-8M3` muestra "Inmediato", queda aprobada y sigue al 5/5 |
 | Solicitud pendiente | Lo avisa y deja verla |
 | Pedir otra vez | Avisa que ya hay una solicitud |
 | Pestaña Crear | Razón social, RUC, tamaño y el aviso de administrador |
@@ -412,15 +414,16 @@ Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión rea
 | Rechazada | Lo muestra y ya no ofrece cancelar |
 | Sin solicitud | Vuelve al 4/5 |
 
-### Reglas de empresas: `src/features/empresas/__tests__/esquemas-test.ts` (25)
+### Reglas de empresas: `src/features/empresas/__tests__/esquemas-test.ts` (33)
 | Prueba | Qué asegura |
 |---|---|
 | Código (6) | Mayúsculas, sin guion ni espacios, máximo 6; con guion como lo genera el backend |
 | RUC válidos (5) | Sociedad privada, persona natural, pública, otro establecimiento y exterior (30) |
-| RUC inválidos (8) | Menos de 13, letras, provincia 00 o 25, tercer dígito 7 u 8, termina en 000 |
+| RUC inválidos (9) | Menos de 13, letras, provincia 00 o 25, tercer dígito 7 u 8, termina en 000, persona natural con cédula inválida |
+| Cédula (7) | Acepta cédulas reales del módulo 10; rechaza verificador cambiado, 9 dígitos o letras; a las sociedades no se les aplica |
 | Empresa (6) | Acepta datos completos; rechaza sin razón social, solo símbolos, RUC inválido o tamaño faltante o inventado |
 
-### API simulada de empresas: `src/services/api/__tests__/mock-empresas-test.ts` (18)
+### API simulada de empresas: `src/services/api/__tests__/mock-empresas-test.ts` (21)
 Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Prueba | Qué asegura |
 |---|---|
@@ -429,6 +432,8 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Límite | Después de 5 intentos en la hora, 429 `DEMASIADOS_INTENTOS` |
 | Canjear | Crea la solicitud en espera con el código con guion y sin datos internos |
 | Duplicada | 409 `SOLICITUD_EXISTENTE` |
+| Acceso inmediato | `DIR-8M3` crea la solicitud ya aprobada |
+| Aprobación simulada | `LEX-4P9` se aprueba sola a los 40 s y no antes; `ACC-7K2` nunca sola |
 | Mis solicitudes | Devuelve las de la persona con su estado al día |
 | Cancelar | Queda cancelada, es idempotente, 404 si no existe, y se puede volver a pedir |
 | Crear empresa | Sesión nueva cuyo token trae el `tid` de la empresa |
@@ -519,6 +524,9 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
   nunca crear el espacio personal (2), usos opcionales (1), no crear el canal
   de Android antes del permiso (1) y espacio personal no idempotente (1).
   Luego se restauró.
+- 21 nov 2026 (cédula, códigos simulados y error del permiso): aceptar
+  cualquier cédula (fallaron 2), no aprobar sola la solicitud de `LEX-4P9` (1)
+  y no atrapar la falla del permiso (2). Luego se restauró.
 
 ## Pendiente
 - Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la
