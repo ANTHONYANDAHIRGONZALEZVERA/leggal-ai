@@ -21,6 +21,13 @@ const trazos = {
   maletin: { d: 'M4 8h16v11H4zM9 8V5h6v3M4 13h16', grosor: 2 },
   birrete: { d: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5', grosor: 2 },
   puntos: { d: 'M5 12h.01M12 12h.01M19 12h.01', grosor: 3 },
+  // Usos del onboarding 5/5.
+  documento: { d: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h4', grosor: 2 },
+  carpeta: { d: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', grosor: 2 },
+  lupa: { d: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', grosor: 2 },
+  lapiz: { d: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4', grosor: 2 },
+  grafico: { d: 'M5 20V10M12 20V4M19 20v-7', grosor: 2 },
+  chispa: { d: 'M12 2l2.2 6.1L20 10l-5.8 2-2.2 6-2.2-6L4 10l5.8-1.9z', grosor: 2 },
   // Solicitud enviada (4/5).
   relojArena: { d: 'M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9', grosor: 2 },
   reloj: { d: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2', grosor: 2 },

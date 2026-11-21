@@ -91,3 +91,38 @@ export const esquemaModo = z.object({
 
 export type DatosModo = z.input<typeof esquemaModo>;
 export type ModoValidado = z.output<typeof esquemaModo>;
+
+// Paso 5/5 "¿Para qué usarás Leggal AI?". Se envía al final con todo (B34).
+export const USOS = [
+  { valor: 'resumir_documentos', titulo: 'Resumir documentos' },
+  { valor: 'controlar_plazos', titulo: 'Controlar plazos' },
+  { valor: 'organizar_casos', titulo: 'Organizar casos' },
+  { valor: 'consultar_normativa', titulo: 'Consultar normativa' },
+  { valor: 'redactar_escritos', titulo: 'Redactar escritos' },
+  { valor: 'informes_clientes', titulo: 'Informes a clientes' },
+] as const;
+export type Uso = (typeof USOS)[number]['valor'];
+
+export const CANALES = [
+  { valor: 'texto', titulo: 'Texto' },
+  { valor: 'voz', titulo: 'Voz' },
+  { valor: 'ambos', titulo: 'Ambos' },
+] as const;
+export type Canal = (typeof CANALES)[number]['valor'];
+
+// Al menos un uso: así el asistente sabe por dónde empezar. Las notificaciones
+// son preferencias: si están activas, la app ya pidió el permiso del sistema.
+export const esquemaPreferencias = z
+  .object({
+    usos: z.array(z.enum(valores(USOS))).min(1, 'Elige al menos un uso'),
+    canal: z.enum(valores(CANALES), { error: 'Elige cómo hablarás con el asistente' }),
+    notificaciones: z.object({ plazos: z.boolean(), resumenDiario: z.boolean() }),
+  })
+  .transform(({ usos, ...resto }) => ({
+    ...resto,
+    // Sin repetidos y en el orden de la lista, para enviar siempre lo mismo.
+    usos: USOS.map(({ valor }) => valor).filter((valor) => usos.includes(valor)),
+  }));
+
+export type DatosPreferencias = z.input<typeof esquemaPreferencias>;
+export type PreferenciasValidadas = z.output<typeof esquemaPreferencias>;

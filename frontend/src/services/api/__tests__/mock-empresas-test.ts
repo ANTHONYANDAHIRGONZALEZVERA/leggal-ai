@@ -137,3 +137,51 @@ describe('API simulada: crear empresa', () => {
     expect(Object.keys(r.datos.campos).sort()).toEqual(['razonSocial', 'ruc', 'tamanoEquipo']);
   });
 });
+
+describe('API simulada: espacio personal (modo Personal)', () => {
+  test('crea una empresa personal y es idempotente: la segunda vez devuelve la misma', async () => {
+    const primera = await pedir('POST', '/tenants', { tipo: 'personal' }, token);
+    const segunda = await pedir('POST', '/tenants', { tipo: 'personal' }, token);
+
+    expect(primera.estado).toBe(201);
+    expect(primera.datos.empresa).toMatchObject({ tipo: 'personal', nombre: 'Espacio personal' });
+    expect(segunda.estado).toBe(200);
+    expect(segunda.datos.empresa.id).toBe(primera.datos.empresa.id);
+    expect(leerCarga(segunda.datos.tokenAcceso)?.tid).toBe(primera.datos.empresa.id);
+  });
+});
+
+describe('API simulada: envío del onboarding', () => {
+  const ONBOARDING = {
+    nombreVisible: 'Andrea Ruiz',
+    nombreUsuario: 'andrea.r',
+    perfilProfesional: { rol: 'abogado', materias: ['laboral'], matricula: null },
+    modo: 'personal',
+    preferencias: { usos: ['resumir_documentos'], canal: 'ambos', notificaciones: { plazos: true, resumenDiario: false } },
+  };
+
+  test('guarda los datos y deja el onboarding completo; el @usuario queda tomado', async () => {
+    const r = await pedir('PATCH', '/users/me/onboarding', ONBOARDING, token);
+
+    expect(r).toMatchObject({
+      estado: 200,
+      datos: { usuario: { nombreVisible: 'Andrea Ruiz', nombreUsuario: 'andrea.r', onboardingCompleto: true } },
+    });
+    const disponible = await pedir('GET', '/usuarios/disponible?usuario=andrea.r', undefined, token);
+    expect(disponible.datos.disponible).toBe(false);
+  });
+
+  test('un @usuario ya tomado responde 409 USUARIO_EN_USO', async () => {
+    expect(await pedir('PATCH', '/users/me/onboarding', { ...ONBOARDING, nombreUsuario: 'andrea.ruiz' }, token)).toMatchObject({
+      estado: 409,
+      datos: { codigo: 'USUARIO_EN_USO' },
+    });
+  });
+
+  test('datos incompletos responden 400 VALIDACION señalando cada campo', async () => {
+    const r = await pedir('PATCH', '/users/me/onboarding', { nombreVisible: '', nombreUsuario: '1x', modo: 'x' }, token);
+
+    expect(r).toMatchObject({ estado: 400, datos: { codigo: 'VALIDACION' } });
+    expect(Object.keys(r.datos.campos).sort()).toEqual(['modo', 'nombreUsuario', 'nombreVisible', 'perfilProfesional', 'preferencias']);
+  });
+});

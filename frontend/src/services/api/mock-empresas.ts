@@ -68,12 +68,15 @@ const INVITACIONES: Record<string, Invitacion> = {
 let solicitudes: (SolicitudAcceso & { usuarioId: string })[] = [];
 let intentos = new Map<string, number[]>();
 let rucs = new Set<string>();
+/** Espacio personal de cada persona (uno solo: crearlo otra vez devuelve el mismo). */
+let personales = new Map<string, string>();
 let contador = 0;
 
 export function reiniciarEmpresas() {
   solicitudes = [];
   intentos = new Map();
   rucs = new Set([RUC_TOMADO]);
+  personales = new Map();
   contador = 0;
 }
 reiniciarEmpresas();
@@ -160,10 +163,19 @@ export function crearRutasEmpresas({ responder, fallar, sesionEnEmpresa }: Herra
     },
 
     'POST /tenants': (cuerpo: Cuerpo, persona: Persona) => {
+      // Modo Personal (B35): una empresa de un solo miembro, idempotente.
+      if (cuerpo.tipo === 'personal') {
+        const existente = personales.get(persona.id);
+        contador += 1;
+        const id = existente ?? `esp-${contador}`;
+        personales.set(persona.id, id);
+        const empresa = { id, nombre: 'Espacio personal', verificada: false, tipo: 'personal' as const };
+        return responder(existente ? 200 : 201, { ...sesionEnEmpresa(persona, id), empresa });
+      }
       const razonSocial = typeof cuerpo.razonSocial === 'string' ? cuerpo.razonSocial.trim() : '';
       const ruc = typeof cuerpo.ruc === 'string' ? cuerpo.ruc : '';
       const campos: Record<string, string> = {};
-      if (cuerpo.tipo !== 'empresa') campos.tipo = 'Debe ser "empresa"';
+      if (cuerpo.tipo !== 'empresa') campos.tipo = 'Debe ser "empresa" o "personal"';
       if (razonSocial.length < 3) campos.razonSocial = 'Ingresa la razón social';
       if (!/^\d{13}$/.test(ruc)) campos.ruc = 'El RUC tiene 13 dígitos';
       if (!TAMANOS_EQUIPO.includes(cuerpo.tamanoEquipo as never)) campos.tamanoEquipo = 'Elige el tamaño del equipo';
