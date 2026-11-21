@@ -39,9 +39,11 @@ workflow deja un comentario con el error.
 | `react-native-safe-area-context` | Usa el mock oficial de la librería (márgenes del teléfono con valores fijos). |
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
+| `@expo/ui` | Dibuja vistas nativas (SwiftUI / Compose) que en Jest quedan como cajas vacías sin texto. `jest.setup.ts` lo reemplaza: la hoja muestra su contenido solo si está abierta y los botones se pueden tocar. |
+| `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (148)
+## Pruebas actuales (188)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -118,7 +120,7 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Reintento | El aviso desaparece al volver a intentar con la cuenta correcta |
 | Crear cuenta | El enlace lleva a `/registro` |
 
-### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (8)
+### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (12)
 `app/_layout.tsx` y `app/index.tsx` reales (F10) con el enrutador de Expo Router
 (`renderRouter`); las pantallas son textos con su nombre.
 | Prueba | Qué asegura |
@@ -131,6 +133,10 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Cerrar sesión | Vuelve al Splash |
 | Enlace directo sin sesión | `/inicio` no deja entrar |
 | Login con sesión | El Login ya no está disponible |
+| Refresh al abrir | Con sesión guardada pregunta una vez al servidor antes de mostrar la app |
+| Sesión cerrada en el servidor | Mientras responde sigue el splash (Inicio no se ve ni un instante) y luego abre en el Splash de la app |
+| Onboarding hecho en otro dispositivo | El usuario al día del refresh lleva a Inicio, no al paso 1/5 |
+| Sin red al abrir | Entra igual con la sesión guardada |
 
 ### Acceso rápido de desarrollo: `src/features/auth/__tests__/acceso-rapido-dev-test.tsx` (3)
 Botones del Login que solo existen en desarrollo con la API simulada.
@@ -161,6 +167,14 @@ Botones del Login que solo existen en desarrollo con la API simulada.
 | Acceso app | Con sesión y onboarding hecho es "app" |
 | Terminar onboarding | Pasa a "app" sin perder la sesión |
 
+### Sesión al abrir la app: `src/services/__tests__/sesion-al-abrir-test.ts` (3)
+`useSesionAlDia`: cuánto espera el splash al refresh de la apertura.
+| Prueba | Qué asegura |
+|---|---|
+| Antes de leer la sesión | No pregunta al servidor |
+| Respuesta rápida | Queda lista apenas responde el refresh |
+| Red lenta | El splash no dura más de `ESPERA_MAX_MS` (3 s) |
+
 ### Vencimiento del token: `src/services/api/__tests__/jwt-test.ts` (7)
 `leerVencimiento` y `vencePronto` (F10).
 | Prueba | Qué asegura |
@@ -173,7 +187,7 @@ Botones del Login que solo existen en desarrollo con la API simulada.
 | Más de 1 min | No vence pronto |
 | No se puede saber | Se usa tal cual |
 
-### Cliente de la API: `src/services/api/__tests__/cliente-test.ts` (25)
+### Cliente de la API: `src/services/api/__tests__/cliente-test.ts` (31)
 `crearClienteApi` (F09), con un transporte falso que registra cada petición.
 Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 `{ tokenRefresco }` y respuesta de sesión completa.
@@ -203,6 +217,10 @@ Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 | Renovación anticipada rechazada (F10) | Cierra la sesión sin hacer la petición |
 | Sin renovar: token por vencer | Lo envía tal cual, sin renovarlo (cerrar sesión) |
 | Sin renovar: 401 | No renueva, no repite y no cierra la sesión por su cuenta |
+| Al abrir, sin sesión | No pregunta nada al servidor |
+| Al abrir, refresh bien | Guarda los tokens nuevos ("renovada") |
+| Al abrir, 401 | Cierra la sesión ("cerrada") |
+| Al abrir, sin red / 503 / 429 | Conserva la sesión ("pendiente"); se reintenta sola en la próxima petición privada |
 
 ### Cabeceras de dispositivo: `src/services/api/__tests__/cabeceras-test.ts` (2)
 `cabecerasDeDispositivo` (contrato B03).
@@ -211,7 +229,7 @@ Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 | Plataforma y versión | `X-Dispositivo: android` y `X-Version-App: 1.0.0` por separado |
 | Sin versión | No envía `X-Version-App` |
 
-### API simulada: `src/services/api/__tests__/mock-test.ts` (23)
+### API simulada: `src/services/api/__tests__/mock-test.ts` (25)
 `transporteSimulado` (F11). Debe comportarse como el backend según su contrato
 (B03, `docs/api/auth.md`).
 | Prueba | Qué asegura |
@@ -232,6 +250,8 @@ Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 | Me | Usuario, `empresaActivaId: null` y `empresas: []` |
 | Me con sesión cerrada | 401 `SESION_REVOCADA` |
 | Ruta desconocida | 404 que dice qué ruta falta |
+| Recargar la app | Un refresh de antes de recargar sirve una vez (el backend real no olvida sesiones); reusarlo da `SESION_REVOCADA` |
+| Recargar sin la cuenta | Si la cuenta era del registro (el mock la olvida), `REFRESCO_INVALIDO` |
 | Rutas de @usuario sin token o con token falso (F30) | 401: son privadas |
 | Disponible / tomado (F30) | `disponible: true` para uno libre y `false` para uno tomado |
 | Sugerencias por nombre (F30) | Armadas con el nombre escrito, sin tildes y sin los tomados |
@@ -250,7 +270,7 @@ Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 | Sin campos | Se devuelve como aviso general (por ejemplo, sin conexión) |
 | Error inesperado | Mensaje genérico |
 
-### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (13)
+### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (21)
 Pantalla "¿Cómo te llamamos?" (F30) contra la API simulada, con la cuenta de
 prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Prueba | Qué asegura |
@@ -268,6 +288,29 @@ prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Formato inválido | Muestra la regla ("No uses dos símbolos seguidos") y no avanza |
 | Volver desde 2/5 | Encuentra lo que ya había llenado |
 | Flecha del paso 1 | Cierra la sesión (volver = salir de la cuenta nueva) |
+| Foto: opciones | El botón de cámara abre "Tomar foto" y "Elegir de la galería"; sin foto no ofrece quitarla |
+| Foto: galería | La foto preparada reemplaza las iniciales, la hoja se cierra y queda en el borrador |
+| Foto: no permitida | Un GIF avisa debajo del avatar y no se usa |
+| Foto: quitar | "Quitar foto" vuelve a las iniciales |
+| Cámara sin permiso | Primero la explicación (no el aviso del sistema); "Permitir cámara" pide el permiso y abre la cámara |
+| Cámara: Ahora no | Cierra la explicación sin pedir el permiso ni abrir la cámara |
+| Cámara bloqueada | Ofrece "Abrir Ajustes" del teléfono |
+| Cámara con permiso | Abre la cámara directo, sin explicación |
+
+### Foto de perfil: `src/features/onboarding/__tests__/foto-test.ts` (17)
+`revisarFoto`, `elegirFoto` y el permiso de cámara (onboarding 1/5).
+| Prueba | Qué asegura |
+|---|---|
+| Formatos aceptados | JPG, PNG, WEBP y HEIC (sin importar mayúsculas) |
+| Rechazos (6) | GIF, SVG, PDF, video, más de 15 MB y menos de 200 px de lado, cada uno con su mensaje |
+| Sin tipo ni peso | No se rechaza ahí: decide la decodificación |
+| Galería | Solo imágenes, recorte cuadrado, sin EXIF ni base64 |
+| Cámara | Mismas reglas |
+| Cancelar | No procesa nada |
+| Preparar | Recorta el centro en cuadrado, 512 × 512 y JPEG al 0,8 |
+| Rechazada | No llega a procesarse |
+| No es imagen | Si no se puede decodificar, se rechaza con su mensaje |
+| Permiso (3) | Dado → concedido; negado pero se puede pedir → preguntar; negado para siempre → bloqueado |
 
 ### Reglas del @usuario: `src/features/onboarding/__tests__/usuario-test.ts` (7)
 `normalizarUsuario` y `esquemaUsuario` (F30). Las sugerencias las arma el servidor.
@@ -305,6 +348,18 @@ prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
   cualquier fallo del refresh (no solo un 401) y fallaron las 2 pruebas de
   503/429; se hizo que ignorara `SESION_REVOCADA` y falló su prueba. Luego se
   restauró.
+- 21 nov 2026 (refresh al abrir): se hizo que "sin red" cerrara la sesión
+  (fallaron 3), se quitó la espera máxima del splash (falló 1), se quitó el
+  recuerdo de refrescos del mock (falló 1) y el layout dejó de esperar el
+  refresh (falló 1, tras reforzar la prueba: antes no lo detectaba). Luego se
+  restauró.
+- 21 nov 2026 (foto de perfil): se pidió el EXIF (fallaron 2), se aceptó
+  cualquier tipo de archivo (fallaron 4), se usó la foto original sin volver a
+  codificarla (fallaron 2) y se pidió el permiso de cámara sin la explicación
+  antes (fallaron 3). Luego se restauró.
 
 ## Pendiente
+- Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la
+  foto). Con todos los archivos avisa "A worker process has failed to exit";
+  con uno solo, queda esperando. Mientras tanto: `npx jest --forceExit`.
 - Flujos completos en el teléfono con Maestro (según CLAUDE.md del frontend).
