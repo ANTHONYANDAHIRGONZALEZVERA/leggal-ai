@@ -78,3 +78,16 @@ export const esquemaArea = z
 
 export type DatosArea = z.input<typeof esquemaArea>;
 export type AreaValidada = z.output<typeof esquemaArea>;
+
+// Paso 3/5 "¿Cómo vas a trabajar?". El valor se envía al final (B34). Con
+// "personal" el backend crea una empresa de un solo miembro (B35) y se salta
+// el 4/5; con "colaborativo" sigue al 4/5 para unirse o crear una empresa.
+export const MODOS = ['personal', 'colaborativo'] as const;
+export type Modo = (typeof MODOS)[number];
+
+export const esquemaModo = z.object({
+  modo: z.enum(MODOS, { error: 'Elige cómo vas a trabajar' }),
+});
+
+export type DatosModo = z.input<typeof esquemaModo>;
+export type ModoValidado = z.output<typeof esquemaModo>;

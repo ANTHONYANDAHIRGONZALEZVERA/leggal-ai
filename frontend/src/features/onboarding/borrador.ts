@@ -1,15 +1,17 @@
 import { create } from 'zustand';
 
-import type { AreaValidada, PerfilValidado } from './esquemas';
+import type { AreaValidada, Modo, PerfilValidado } from './esquemas';
 
 type Borrador = {
   perfil: PerfilValidado | null;
   /** Foto de perfil ya preparada (archivo local del teléfono), o null si no eligió. */
   foto: string | null;
   area: AreaValidada | null;
+  modo: Modo | null;
   guardarPerfil: (perfil: PerfilValidado) => void;
   guardarFoto: (foto: string | null) => void;
   guardarArea: (area: AreaValidada) => void;
+  guardarModo: (modo: Modo) => void;
   vaciar: () => void;
 };
 
@@ -20,8 +22,10 @@ export const useBorradorOnboarding = create<Borrador>()((set) => ({
   perfil: null,
   foto: null,
   area: null,
+  modo: null,
   guardarPerfil: (perfil) => set({ perfil }),
   guardarFoto: (foto) => set({ foto }),
   guardarArea: (area) => set({ area }),
-  vaciar: () => set({ perfil: null, foto: null, area: null }),
+  guardarModo: (modo) => set({ modo }),
+  vaciar: () => set({ perfil: null, foto: null, area: null, modo: null }),
 }));
