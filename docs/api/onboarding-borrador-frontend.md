@@ -36,6 +36,18 @@ que manda la app:
 - Con `colaborativo` sigue al 4/5 "Conéctate a tu empresa" (F33): unirse con
   código o crear una empresa.
 
+## Paso 4/5: empresa (F33)
+Solo en modo `colaborativo`. Las rutas (B35 y B39) están en
+[`empresas-borrador-frontend.md`](empresas-borrador-frontend.md).
+- **Unirme con código:** la solicitud se crea en el momento (no al final).
+  Desde "Solicitud enviada" la persona puede "Continuar en modo personal": el
+  `modo` sigue siendo `colaborativo` y la solicitud queda pendiente.
+- **Crear empresa:** se crea en el momento (`POST /tenants`) y la app guarda la
+  sesión nueva, cuyo token ya trae la empresa.
+- **Al final (F31):** si la persona es `colaborativo` pero no creó empresa ni
+  la aprobaron todavía, debe crearse igual su espacio personal (`POST /tenants`
+  con `tipo: personal`) para que tenga dónde trabajar mientras espera.
+
 ## `GET /usuarios/disponible?usuario=<texto>` (F30)
 Revisa si un @usuario está libre. La app solo consulta textos con formato
 válido (3 a 30 caracteres; letras minúsculas, números, punto y guion bajo;
