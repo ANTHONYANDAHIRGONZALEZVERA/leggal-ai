@@ -12,7 +12,7 @@ import { reiniciarMock, USUARIO_DEMO, USUARIO_NUEVO } from '@/services/api/mock'
 import { CODIGOS_DE_PRUEBA } from '@/services/api/mock-empresas';
 import { useSesion } from '@/services/sesion';
 
-import { deslizamiento, DESCRIPCION_SUGERENCIAS, FILAS } from '../sugerencias-asistente';
+import { DESCRIPCION_SUGERENCIAS, desplazamiento, FILAS } from '../sugerencias-asistente';
 
 jest.mock('@/components/icono', () => ({ Icono: () => null }));
 jest.mock('@/components/esfera', () => ({ Esfera: () => null }));
@@ -160,28 +160,24 @@ describe('Inicio', () => {
   });
 });
 
-// Movimiento de las sugerencias (Reanimated no expone la animación en Jest:
-// se prueba el cálculo que usa cada fila).
+// Movimiento de las sugerencias (en Jest la animación no corre: se prueba
+// la posición que calcula cada fila en su ciclo).
 describe('Sugerencias del asistente en movimiento', () => {
-  test('la 1 y la 3 van hacia la derecha; la 2, hacia la izquierda; las tres sin fin y a ritmo parejo', () => {
+  test('la 1 y la 3 van hacia la derecha; la 2, hacia la izquierda', () => {
     expect(FILAS.map((f) => f.haciaDerecha)).toEqual([true, false, true]);
-    for (const fila of FILAS) {
-      expect(deslizamiento(700, fila)).toMatchObject({
-        animationIterationCount: 'infinite',
-        animationTimingFunction: 'linear',
-        animationDirection: fila.haciaDerecha ? 'reverse' : 'normal',
-      });
+  });
+
+  test('hacia la izquierda avanza de 0 a menos una copia', () => {
+    expect([0, 0.5, 1].map((avance) => desplazamiento(avance, 760, false))).toEqual([-0, -380, -760]);
+  });
+
+  test('hacia la derecha avanza de menos una copia a 0', () => {
+    expect([0, 0.5, 1].map((avance) => desplazamiento(avance, 760, true))).toEqual([-760, -380, -0]);
+  });
+
+  test('cada ciclo corre exactamente una copia: el bucle no tiene salto', () => {
+    for (const haciaDerecha of [true, false]) {
+      expect(Math.abs(desplazamiento(1, 700, haciaDerecha) - desplazamiento(0, 700, haciaDerecha))).toBe(700);
     }
-  });
-
-  test('recorre exactamente el ancho de una copia: el bucle no tiene salto', () => {
-    expect(deslizamiento(760, FILAS[0])?.animationName).toEqual({
-      from: { transform: [{ translateX: 0 }] },
-      to: { transform: [{ translateX: -760 }] },
-    });
-  });
-
-  test('sin medir todavía la copia, no se mueve', () => {
-    expect(deslizamiento(0, FILAS[1])).toBeNull();
   });
 });

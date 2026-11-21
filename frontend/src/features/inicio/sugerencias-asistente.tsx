@@ -1,6 +1,14 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { ScrollView, View } from 'react-native';
-import Animated, { useReducedMotion, type CSSAnimationKeyframes } from 'react-native-reanimated';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { Icono, type NombreIcono } from '@/components/icono';
 import { Texto } from '@/components/texto';
@@ -91,34 +99,42 @@ function Chip({ accion, resto, icono, fondo, color }: Sugerencia) {
 }
 
 /**
- * Una fila que se desliza sin fin: la lista va dos veces seguidas y se mueve
- * justo el ancho de una copia; al terminar el ciclo la segunda copia está donde
- * empezó la primera y no se nota el salto. Se mide la copia (no la fila): la
- * fila toma el ancho de la pantalla y con eso apenas se movería. Solo
- * translateX, en el hilo de UI.
+ * Dónde está la fila según su avance en el ciclo (0 → 1). Hacia la izquierda
+ * va de 0 a −ancho de una copia; hacia la derecha, de −ancho a 0. Al cerrar el
+ * ciclo queda corrida justo una copia: la segunda está donde empezó la primera
+ * y el salto no se nota.
  */
-export function deslizamiento(anchoCopia: number, { duracion, haciaDerecha }: Pick<Fila, 'duracion' | 'haciaDerecha'>) {
-  if (anchoCopia <= 0) return null;
-  const deslizar: CSSAnimationKeyframes = {
-    from: { transform: [{ translateX: 0 }] },
-    to: { transform: [{ translateX: -anchoCopia }] },
-  };
-  return {
-    animationName: deslizar,
-    animationDuration: duracion,
-    animationIterationCount: 'infinite',
-    animationTimingFunction: 'linear',
-    // Hacia la derecha: el mismo recorrido, al revés.
-    animationDirection: haciaDerecha ? 'reverse' : 'normal',
-  } as const;
+export function desplazamiento(avance: number, anchoCopia: number, haciaDerecha: boolean) {
+  'worklet';
+  return haciaDerecha ? -anchoCopia * (1 - avance) : -anchoCopia * avance;
 }
 
-function FilaEnMovimiento(fila: Fila) {
-  const { sugerencias } = fila;
-  const [anchoCopia, setAnchoCopia] = useState(0);
-  const copia = (medir: boolean) => (
+/**
+ * Una fila que se desliza sola y sin fin: la lista va dos veces seguidas y se
+ * mueve el ancho de una copia (se mide la copia, no la fila, que toma el ancho
+ * de la pantalla). Con valores compartidos de Reanimated, como la esfera: corre
+ * en el hilo de UI y React no vuelve a dibujar nada en cada cuadro.
+ */
+function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha }: Fila) {
+  const anchoCopia = useSharedValue(0);
+  const avance = useSharedValue(0);
+  useEffect(() => () => cancelAnimation(avance), [avance]);
+
+  function medir(ancho: number) {
+    if (ancho <= 0 || ancho === anchoCopia.get()) return;
+    anchoCopia.set(ancho);
+    cancelAnimation(avance);
+    avance.set(0);
+    avance.set(withRepeat(withTiming(1, { duration: duracion, easing: Easing.linear }), -1));
+  }
+
+  const estilo = useAnimatedStyle(() => ({
+    transform: [{ translateX: desplazamiento(avance.get(), anchoCopia.get(), haciaDerecha) }],
+  }));
+
+  const copia = (medida: boolean) => (
     <View
-      onLayout={medir ? (e) => setAnchoCopia(e.nativeEvent.layout.width) : undefined}
+      onLayout={medida ? (e) => medir(e.nativeEvent.layout.width) : undefined}
       style={{ flexDirection: 'row', gap: SEPARACION, paddingRight: SEPARACION }}>
       {sugerencias.map((sugerencia) => (
         <Chip key={sugerencia.accion} {...sugerencia} />
@@ -128,8 +144,7 @@ function FilaEnMovimiento(fila: Fila) {
 
   return (
     <View style={{ overflow: 'hidden' }}>
-      <Animated.View
-        style={[{ flexDirection: 'row', alignSelf: 'flex-start' }, deslizamiento(anchoCopia, fila)]}>
+      <Animated.View style={[{ flexDirection: 'row', alignSelf: 'flex-start' }, estilo]}>
         {copia(true)}
         {copia(false)}
       </Animated.View>
