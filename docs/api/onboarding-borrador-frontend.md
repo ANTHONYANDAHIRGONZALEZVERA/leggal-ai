@@ -15,6 +15,17 @@ hoy la API simulada; se cambian cuando B33 los deje escritos.
 Son rutas privadas: llevan `Authorization: Bearer <tokenAcceso>`, y los errores
 siguen el formato estándar de [`auth.md`](auth.md#formato-de-error-estándar).
 
+## Paso 2/5: área (F30)
+Se guarda en el borrador y se envía al final con el resto (F31, B34). Valores
+que manda la app:
+- `rol` (obligatorio): `abogado`, `asistente_legal`, `contador`, `gerente`,
+  `estudiante` u `otro`.
+- `materias` (lista, puede ir vacía): `laboral`, `civil`, `penal`,
+  `tributario`, `societario`, `familia`, `administrativo`, `constitucional`,
+  `propiedad_intelectual`.
+- `matricula` (texto o `null`): solo si el rol es `abogado`; hasta 30
+  caracteres con letras, números, espacios, puntos, guiones o barras.
+
 ## `GET /usuarios/disponible?usuario=<texto>` (F30)
 Revisa si un @usuario está libre. La app solo consulta textos con formato
 válido (3 a 30 caracteres; letras minúsculas, números, punto y guion bajo;

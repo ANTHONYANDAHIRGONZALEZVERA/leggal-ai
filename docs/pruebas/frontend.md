@@ -43,7 +43,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (188)
+## Pruebas actuales (201)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -297,6 +297,24 @@ prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Cámara bloqueada | Ofrece "Abrir Ajustes" del teléfono |
 | Cámara con permiso | Abre la cámara directo, sin explicación |
 
+### Onboarding 2/5: `src/features/onboarding/__tests__/area-test.tsx` (13)
+Pantalla "¿En qué área te desempeñas?" (F30) y `esquemaArea`.
+| Prueba | Qué asegura |
+|---|---|
+| Empieza vacío | Sin rol ni materias, y sin el campo de matrícula |
+| Sin rol | No avanza y pide "Elige tu rol" |
+| Un solo rol | Elegir otro desmarca el anterior |
+| Materias | Se marcan y desmarcan, varias a la vez |
+| Matrícula | Aparece solo para Abogado/a |
+| Continuar | Guarda rol, materias y matrícula en el borrador y pasa al 3/5 |
+| Sin materias | También avanza (son opcionales) |
+| Matrícula inválida | Con símbolos raros muestra la regla y no avanza |
+| Volver desde 3/5 | Encuentra lo que ya había elegido |
+| Flecha | Vuelve al paso 1/5 |
+| Matrícula de otro rol | Se descarta: solo se guarda para abogados |
+| Matrícula vacía | Queda en `null` |
+| Valores inventados | Rechaza roles o materias que no existen |
+
 ### Foto de perfil: `src/features/onboarding/__tests__/foto-test.ts` (17)
 `revisarFoto`, `elegirFoto` y el permiso de cámara (onboarding 1/5).
 | Prueba | Qué asegura |
@@ -357,6 +375,10 @@ prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
   cualquier tipo de archivo (fallaron 4), se usó la foto original sin volver a
   codificarla (fallaron 2) y se pidió el permiso de cámara sin la explicación
   antes (fallaron 3). Luego se restauró.
+- 21 nov 2026 (onboarding 2/5): se hizo opcional el rol, se guardó la
+  matrícula de cualquier rol, los chips dejaron de desmarcarse y la matrícula
+  apareció para todos los roles; cada cambio hizo fallar 1 prueba. Luego se
+  restauró.
 
 ## Pendiente
 - Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la
