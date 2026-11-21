@@ -41,10 +41,11 @@ workflow deja un comentario con el error.
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | `@expo/ui` | Dibuja vistas nativas (SwiftUI / Compose) que en Jest quedan como cajas vacías sin texto. `jest.setup.ts` lo reemplaza: la hoja muestra su contenido solo si está abierta y los botones se pueden tocar. |
 | `Alert.alert` | El diálogo nativo no existe en Jest: las pruebas lo espían y "tocan" el botón que corresponde (por ejemplo, "Sí, cancelar"). |
+| `expo-notifications` y el permiso del 5/5 | El aviso del sistema no existe en Jest. `permiso-test` reemplaza el módulo; la pantalla reemplaza `features/notificaciones/permiso` (ya probado aparte). El `Switch` se mueve con `fireEvent(…, 'valueChange')`: con un toque simulado no cambia y la prueba pasaría sin probar nada. |
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (291)
+## Pruebas actuales (327)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -341,6 +342,44 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 | Sin el 2/5 | Vuelve al 2/5 |
 | Flecha | Vuelve al paso 2/5 |
 
+### Onboarding 5/5: `src/features/onboarding/__tests__/preferencias-test.tsx` (16)
+Pantalla "¿Para qué usarás Leggal AI?" (F31) y `esquemaPreferencias`.
+| Prueba | Qué asegura |
+|---|---|
+| Al abrir | Sin usos, canal "Ambos" y notificaciones apagadas |
+| Elegir | Varios usos; un solo canal |
+| Sin usos | No empieza y pide "Elige al menos un uso" |
+| Permiso ya dado | El interruptor se enciende sin preguntar |
+| Sin permiso | Primero la explicación; si lo da, se enciende |
+| Ahora no | Cierra la explicación y queda apagado |
+| Lo niega | Queda apagado |
+| Bloqueado | Ofrece abrir los Ajustes y no lo enciende |
+| Apagar | No pregunta por el permiso |
+| Empezar | Envía todo y el onboarding queda hecho |
+| Envío falla | Lo avisa y no pierde lo elegido |
+| Salir hacia atrás | Guarda lo elegido |
+| Pasos anteriores (2) | Sin el 1/5 vuelve al 1/5; Colaborativo sin empresa ni solicitud vuelve al 4/5 |
+| Usos | Sin repetir y en el orden de la lista; rechaza usos o canales inventados |
+
+### Envío del onboarding: `src/features/onboarding/__tests__/envio-test.ts` (10)
+`enviarOnboarding` y `necesitaEspacioPersonal` (F31, B34 y B35), contra la API simulada.
+| Prueba | Qué asegura |
+|---|---|
+| ¿Espacio personal? (4) | Sí en Personal y en Colaborativo esperando aprobación; no si creó empresa o ya lo aprobaron |
+| Personal | Crea el espacio personal, envía todo, deja el onboarding completo y vacía el borrador |
+| Colaborativo pendiente | También recibe su espacio personal |
+| Colaborativo con empresa | No recibe espacio personal |
+| @usuario tomado | Falla con su mensaje y no pierde el borrador |
+| Reintento | No crea un segundo espacio personal |
+| Sin pasos | No envía nada |
+
+### Permiso de notificaciones: `src/features/notificaciones/__tests__/permiso-test.ts` (6)
+| Prueba | Qué asegura |
+|---|---|
+| Estados (4) | Dado o provisional de iOS → concedido; negado → preguntar; negado para siempre → bloqueado |
+| Android | Crea el canal "avisos" antes de pedir el permiso (Android 13+ lo necesita) |
+| iOS | No crea canales y pide alertas, globo y sonido |
+
 ### Onboarding 4/5: `src/features/empresas/__tests__/empresa-test.tsx` (17)
 Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión real.
 | Prueba | Qué asegura |
@@ -381,7 +420,7 @@ Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión rea
 | RUC inválidos (8) | Menos de 13, letras, provincia 00 o 25, tercer dígito 7 u 8, termina en 000 |
 | Empresa (6) | Acepta datos completos; rechaza sin razón social, solo símbolos, RUC inválido o tamaño faltante o inventado |
 
-### API simulada de empresas: `src/services/api/__tests__/mock-empresas-test.ts` (14)
+### API simulada de empresas: `src/services/api/__tests__/mock-empresas-test.ts` (18)
 Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Prueba | Qué asegura |
 |---|---|
@@ -395,6 +434,10 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Crear empresa | Sesión nueva cuyo token trae el `tid` de la empresa |
 | RUC en uso | 409 `RUC_EN_USO` |
 | Validación | 400 `VALIDACION` señalando cada campo |
+| Espacio personal | `tipo: personal` crea una empresa de un miembro; la segunda vez devuelve la misma (idempotente) |
+| Envío del onboarding | Guarda los datos, deja el onboarding completo y toma el @usuario |
+| @usuario tomado | 409 `USUARIO_EN_USO` |
+| Onboarding incompleto | 400 `VALIDACION` señalando cada campo |
 
 ### Foto de perfil: `src/features/onboarding/__tests__/foto-test.ts` (17)
 `revisarFoto`, `elegirFoto` y el permiso de cámara (onboarding 1/5).
@@ -472,6 +515,10 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
   vista previa (fallaron 3), sin limpiar lo pegado (7), sin guardar la sesión
   con la empresa (1), sin la vuelta al 3/5 en modo Personal (1), cancelar sin
   confirmar (1) e ignorar el estado del servidor (2). Luego se restauró.
+- 21 nov 2026 (onboarding 5/5): encender sin revisar el permiso (fallaron 4),
+  nunca crear el espacio personal (2), usos opcionales (1), no crear el canal
+  de Android antes del permiso (1) y espacio personal no idempotente (1).
+  Luego se restauró.
 
 ## Pendiente
 - Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la
