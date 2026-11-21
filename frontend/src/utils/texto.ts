@@ -14,6 +14,11 @@ export function iniciales(nombre: string) {
   return (primera + ultima).toUpperCase();
 }
 
+/** Primer nombre para saludar: "Andrea Ruiz" → "Andrea"; vacío → "". */
+export function primerNombre(nombre: string) {
+  return nombre.trim().split(/\s+/)[0] ?? '';
+}
+
 /** Cierra una frase con punto sin duplicarlo: "ACCONS S.A.S." no queda "S.A.S..". */
 export function conPunto(frase: string) {
   return /[.!?…]$/.test(frase) ? frase : `${frase}.`;

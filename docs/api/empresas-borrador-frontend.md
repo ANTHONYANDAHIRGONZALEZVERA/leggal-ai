@@ -91,6 +91,20 @@ verificado: la app los oculta.
 La aprobación sola de `LEX-4P9` existe **solo en la API simulada**. En el
 backend real la decide un administrador (B40).
 
+## Inicio: qué lee de `GET /auth/me` (F12)
+El encabezado del Inicio muestra el **espacio activo** con `empresaActivaId` y
+`empresas` del contrato (B11, [`auth.md`](auth.md#get-authme)):
+1. La empresa cuyo `id` es `empresaActivaId` (el `tid` del token).
+2. Si el token aún no trae empresa, la primera membresía `activa` de tipo
+   `empresa`; si no hay, la `personal`.
+3. Una membresía `en_espera` nunca es el espacio activo.
+
+Para que se vea bien hace falta del backend:
+- Que `GET /auth/me` devuelva las membresías **`activa` y `en_espera`** con
+  `nombre`, `tipo` y `rol` (como dice el contrato).
+- El espacio personal con un nombre para mostrar. La app usa el que llegue en
+  `nombre`; la API simulada usa "Espacio personal".
+
 ## Para Joel: qué falta en el backend
 1. **B39**: las rutas de códigos y solicitudes de arriba, con el límite de 5
    intentos por hora y los mismos códigos de error.

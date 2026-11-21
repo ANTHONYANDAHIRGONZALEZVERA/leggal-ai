@@ -174,14 +174,18 @@ describe('API simulada: logout y me', () => {
     expect(await post('/auth/logout')).toMatchObject({ estado: 401, datos: { codigo: 'NO_AUTENTICADO' } });
   });
 
-  test('me devuelve el usuario y sus empresas (vacías en la semana 1)', async () => {
+  test('me devuelve el usuario y sus empresas (la demo ya es Administrador de ACCONS)', async () => {
     const { datos } = await entrarDemo();
 
     const r = await pedir('GET', '/auth/me', undefined, datos.tokenAcceso);
 
     expect(r).toMatchObject({
       estado: 200,
-      datos: { usuario: { id: 'usr-demo', correo: 'demo@leggal.ai' }, empresaActivaId: null, empresas: [] },
+      datos: {
+        usuario: { id: 'usr-demo', correo: 'demo@leggal.ai' },
+        empresaActivaId: null,
+        empresas: [{ id: 'emp-accons', nombre: 'ACCONS S.A.S.', tipo: 'empresa', rol: 'Administrador', estadoMembresia: 'activa' }],
+      },
     });
   });
 

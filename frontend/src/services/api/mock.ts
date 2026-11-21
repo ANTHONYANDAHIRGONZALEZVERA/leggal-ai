@@ -4,7 +4,7 @@ import { quitarAcentos } from '@/utils/texto';
 import type { RespuestaTransporte, Transporte } from './cliente';
 import { RUTAS_AUTH, type UsuarioApi } from './contrato';
 import { leerCarga, leerVencimiento } from './jwt';
-import { crearRutasEmpresas, reiniciarEmpresas } from './mock-empresas';
+import { crearRutasEmpresas, empresasDe, reiniciarEmpresas } from './mock-empresas';
 
 // API simulada (F11): responde dentro de la app como el backend según su
 // contrato (B03, docs/api/auth.md), para avanzar sin servidor. Se activa con
@@ -189,7 +189,7 @@ function sugerenciasPara(nombre: string) {
 
 type Manejador = (cuerpo: Cuerpo, cabeceras: Record<string, string>) => RespuestaTransporte;
 /** Las rutas privadas reciben además a la persona dueña del token. */
-type ManejadorPrivado = (cuerpo: Cuerpo, persona: UsuarioSimulado) => RespuestaTransporte;
+type ManejadorPrivado = (cuerpo: Cuerpo, persona: UsuarioSimulado, sid: string) => RespuestaTransporte;
 
 const rutasPrivadas: Record<string, ManejadorPrivado> = {
   ...crearRutasEmpresas({
@@ -197,8 +197,9 @@ const rutasPrivadas: Record<string, ManejadorPrivado> = {
     fallar,
     sesionEnEmpresa: (persona, empresaId) => abrirSesion(persona as UsuarioSimulado, empresaId),
   }),
-  [`GET ${RUTAS_AUTH.yo}`]: (_cuerpo, persona) =>
-    responder(200, { usuario: publico(persona), empresaActivaId: null, empresas: [] }),
+  // empresaActivaId es el tid de esta sesión (contrato B03).
+  [`GET ${RUTAS_AUTH.yo}`]: (_cuerpo, persona, sid) =>
+    responder(200, { usuario: publico(persona), empresaActivaId: sesiones.get(sid)?.tid ?? null, empresas: empresasDe(persona.id) }),
   'GET /usuarios/disponible': ({ usuario }) =>
     responder(200, { usuario, disponible: !usuariosTomados.has(texto(usuario)) }),
   'GET /usuarios/sugerencias': ({ nombre }) => responder(200, { sugerencias: sugerenciasPara(texto(nombre)) }),
@@ -306,7 +307,7 @@ export const transporteSimulado: Transporte = async (url, { method, headers, bod
     if (!token) return noAutenticado();
     if (sesiones.get(token.sid)?.revocada) return sesionRevocada();
     const persona = usuarioPorId(token.usuarioId);
-    return persona ? privada(cuerpo, persona) : noAutenticado();
+    return persona ? privada(cuerpo, persona, token.sid) : noAutenticado();
   }
 
   const manejar = rutas[clave];

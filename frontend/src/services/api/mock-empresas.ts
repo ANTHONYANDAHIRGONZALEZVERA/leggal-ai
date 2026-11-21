@@ -2,7 +2,7 @@ import type { EmpresaResumen, RolAsignado, SolicitudAcceso, VistaPreviaCodigo } 
 import { TAMANOS_EQUIPO } from '@/features/empresas/contrato';
 
 import type { RespuestaTransporte } from './cliente';
-import type { RespuestaSesionApi } from './contrato';
+import type { EmpresaApi, RespuestaSesionApi } from './contrato';
 
 // Empresas, códigos y solicitudes de la API simulada (B35 y B39), según la
 // propuesta de docs/api/empresas-borrador-frontend.md. La usa mock.ts.
@@ -83,13 +83,52 @@ let intentos = new Map<string, number[]>();
 let rucs = new Set<string>();
 /** Espacio personal de cada persona (uno solo: crearlo otra vez devuelve el mismo). */
 let personales = new Map<string, string>();
+/** Empresas creadas en "Crear empresa": su creador queda como Administrador. */
+let creadas: { usuarioId: string; empresa: EmpresaResumen }[] = [];
 let contador = 0;
+
+/** Id de la cuenta demo de mock.ts: ya es Administrador de ACCONS. */
+const ID_DEMO = 'usr-demo';
+const ACCONS: EmpresaApi = {
+  id: 'emp-accons',
+  nombre: 'ACCONS S.A.S.',
+  tipo: 'empresa',
+  rol: 'Administrador',
+  estadoMembresia: 'activa',
+};
+
+/**
+ * Empresas de la persona para GET /auth/me (contrato B03): solo membresías
+ * `activa` o `en_espera`. Las rechazadas o canceladas no aparecen.
+ */
+export function empresasDe(usuarioId: string): EmpresaApi[] {
+  const lista: EmpresaApi[] = usuarioId === ID_DEMO ? [ACCONS] : [];
+  const personal = personales.get(usuarioId);
+  if (personal) {
+    lista.push({ id: personal, nombre: 'Espacio personal', tipo: 'personal', rol: 'Administrador', estadoMembresia: 'activa' });
+  }
+  for (const { empresa } of creadas.filter((c) => c.usuarioId === usuarioId)) {
+    lista.push({ id: empresa.id, nombre: empresa.nombre, tipo: 'empresa', rol: 'Administrador', estadoMembresia: 'activa' });
+  }
+  for (const s of solicitudes.filter((s) => s.usuarioId === usuarioId)) {
+    if (s.estado !== 'aprobada' && s.estado !== 'en_espera') continue;
+    lista.push({
+      id: s.empresa.id,
+      nombre: s.empresa.nombre,
+      tipo: 'empresa',
+      rol: s.rol.nombre,
+      estadoMembresia: s.estado === 'aprobada' ? 'activa' : 'en_espera',
+    });
+  }
+  return lista;
+}
 
 export function reiniciarEmpresas() {
   solicitudes = [];
   intentos = new Map();
   rucs = new Set([RUC_TOMADO]);
   personales = new Map();
+  creadas = [];
   contador = 0;
 }
 reiniciarEmpresas();
@@ -210,6 +249,7 @@ export function crearRutasEmpresas({ responder, fallar, sesionEnEmpresa }: Herra
         verificada: false,
         tipo: 'empresa' as const,
       };
+      creadas.push({ usuarioId: persona.id, empresa });
       return responder(201, {
         ...sesionEnEmpresa(persona, empresa.id),
         empresa,

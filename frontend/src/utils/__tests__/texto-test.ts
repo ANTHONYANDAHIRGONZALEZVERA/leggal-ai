@@ -1,4 +1,4 @@
-import { conPunto, iniciales, quitarAcentos } from '../texto';
+import { conPunto, iniciales, primerNombre, quitarAcentos } from '../texto';
 
 // Utilidades de texto compartidas (F30).
 describe('quitarAcentos', () => {
@@ -27,6 +27,17 @@ describe('iniciales', () => {
 
   test('sin nombre devuelve vacío', () => {
     expect(iniciales('   ')).toBe('');
+  });
+});
+
+describe('primerNombre', () => {
+  test.each([
+    ['Andrea Ruiz', 'Andrea'],
+    ['  María José López ', 'María'],
+    ['Ana', 'Ana'],
+    ['   ', ''],
+  ])('"%s" → "%s"', (nombre, esperado) => {
+    expect(primerNombre(nombre)).toBe(esperado);
   });
 });
 
