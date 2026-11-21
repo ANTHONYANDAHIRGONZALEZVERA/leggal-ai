@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import type { EmpresaResumen, SolicitudAcceso } from '@/features/empresas/contrato';
+
 import type { AreaValidada, Modo, PerfilValidado } from './esquemas';
 
 type Borrador = {
@@ -8,10 +10,16 @@ type Borrador = {
   foto: string | null;
   area: AreaValidada | null;
   modo: Modo | null;
+  /** 4/5: solicitud enviada con un código (puede seguir pendiente al terminar). */
+  solicitud: SolicitudAcceso | null;
+  /** 4/5: empresa creada por la persona (ya existe en el servidor). */
+  empresa: EmpresaResumen | null;
   guardarPerfil: (perfil: PerfilValidado) => void;
   guardarFoto: (foto: string | null) => void;
   guardarArea: (area: AreaValidada) => void;
   guardarModo: (modo: Modo) => void;
+  guardarSolicitud: (solicitud: SolicitudAcceso | null) => void;
+  guardarEmpresa: (empresa: EmpresaResumen) => void;
   vaciar: () => void;
 };
 
@@ -23,9 +31,13 @@ export const useBorradorOnboarding = create<Borrador>()((set) => ({
   foto: null,
   area: null,
   modo: null,
+  solicitud: null,
+  empresa: null,
   guardarPerfil: (perfil) => set({ perfil }),
   guardarFoto: (foto) => set({ foto }),
   guardarArea: (area) => set({ area }),
   guardarModo: (modo) => set({ modo }),
-  vaciar: () => set({ perfil: null, foto: null, area: null, modo: null }),
+  guardarSolicitud: (solicitud) => set({ solicitud }),
+  guardarEmpresa: (empresa) => set({ empresa }),
+  vaciar: () => set({ perfil: null, foto: null, area: null, modo: null, solicitud: null, empresa: null }),
 }));

@@ -10,6 +10,7 @@ import { ErrorApi, MENSAJE_GENERICO } from './errores';
 // corrige en un campo concreto: el mensaje va debajo de ese campo.
 const campoDelCodigo: Record<string, { campo: string; mensaje: string }> = {
   CORREO_EN_USO: { campo: 'correo', mensaje: 'Ya existe una cuenta con este correo' },
+  RUC_EN_USO: { campo: 'ruc', mensaje: 'Ya hay una empresa registrada con este RUC' },
 };
 
 export function aplicarErrorApi<T extends FieldValues>(

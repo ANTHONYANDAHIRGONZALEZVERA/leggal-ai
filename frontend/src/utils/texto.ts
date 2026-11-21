@@ -13,3 +13,8 @@ export function iniciales(nombre: string) {
   const ultima = palabras.length > 1 ? palabras[palabras.length - 1][0] : '';
   return (primera + ultima).toUpperCase();
 }
+
+/** Cierra una frase con punto sin duplicarlo: "ACCONS S.A.S." no queda "S.A.S..". */
+export function conPunto(frase: string) {
+  return /[.!?…]$/.test(frase) ? frase : `${frase}.`;
+}
