@@ -23,12 +23,31 @@ export const codigoConGuion = (codigo: string) => `${codigo.slice(0, 3)}-${codig
 export const LARGO_RUC = 13;
 
 /**
- * Revisa el RUC de Ecuador sin el dígito verificador: el SRI asigna RUC que no
- * siempre cumplen el cálculo antiguo, y rechazar uno válido dejaría a la
- * empresa fuera. El backend puede verificarlo contra el SRI.
+ * ¿Cumple la cédula (10 dígitos) su dígito verificador? Módulo 10 del Registro
+ * Civil: los 9 primeros por 2,1,2,1…; si un producto pasa de 9 se le resta 9;
+ * el verificador es lo que le falta a la suma para llegar a la decena.
+ */
+export function cedulaValida(cedula: string) {
+  if (!/^\d{10}$/.test(cedula)) return false;
+  const digitos = [...cedula].map(Number);
+  const suma = digitos.slice(0, 9).reduce((total, d, i) => {
+    const producto = d * (i % 2 === 0 ? 2 : 1);
+    return total + (producto > 9 ? producto - 9 : producto);
+  }, 0);
+  return (10 - (suma % 10)) % 10 === digitos[9];
+}
+
+/**
+ * Revisa el RUC de Ecuador sin internet (el SRI no tiene API pública; el
+ * backend puede verificarlo después).
  * - 13 dígitos.
  * - Provincia (2 primeros): 01 a 24, o 30 (ecuatorianos en el exterior).
  * - Tercer dígito: 0 a 5 (persona natural), 6 (pública) o 9 (sociedad privada).
+ * - Persona natural: sus 10 primeros dígitos son su cédula y deben cumplir el
+ *   dígito verificador.
+ * - Sociedades y públicas: **sin** dígito verificador, porque el SRI asigna RUC
+ *   que no siempre cumplen el cálculo antiguo y rechazar uno válido dejaría a
+ *   la empresa fuera.
  * - Termina en el número de establecimiento: 001 o más (0001 si es pública).
  */
 export function problemaRuc(ruc: string): string | null {
@@ -37,6 +56,7 @@ export function problemaRuc(ruc: string): string | null {
   if (!((provincia >= 1 && provincia <= 24) || provincia === 30)) return 'Revisa los dos primeros dígitos (provincia)';
   const tercero = Number(ruc[2]);
   if (tercero === 7 || tercero === 8) return 'Revisa el tercer dígito del RUC';
+  if (tercero <= 5 && !cedulaValida(ruc.slice(0, 10))) return 'Los 10 primeros dígitos no son una cédula válida';
   const establecimiento = tercero === 6 ? ruc.slice(9) : ruc.slice(10);
   if (Number(establecimiento) < 1) return 'El RUC no puede terminar en 000';
   return null;

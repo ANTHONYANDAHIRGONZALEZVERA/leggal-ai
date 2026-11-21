@@ -146,6 +146,30 @@ describe('Onboarding 5/5: ¿Para qué usarás Leggal AI?', () => {
     expect(aviso('Plazos y audiencias')).toHaveProp('value', false);
   });
 
+  test('si el sistema falla al consultar el permiso, lo explica y queda apagado', async () => {
+    sistema.consultarPermisoNotificaciones.mockRejectedValue(new Error('módulo nativo'));
+    await renderizar(<Preferencias />);
+
+    await mover('Plazos y audiencias', true);
+
+    expect(await screen.findByText(/No pudimos activar las notificaciones/)).toBeOnTheScreen();
+    expect(aviso('Plazos y audiencias')).toHaveProp('value', false);
+  });
+
+  test('si el sistema falla al pedir el permiso, cierra la explicación y sigue apagado', async () => {
+    sistema.consultarPermisoNotificaciones.mockResolvedValue('preguntar');
+    sistema.pedirPermisoNotificaciones.mockRejectedValue(new Error('módulo nativo'));
+    const user = userEvent.setup();
+    await renderizar(<Preferencias />);
+
+    await mover('Resumen diario', true);
+    await user.press(await screen.findByText('Permitir notificaciones'));
+
+    expect(await screen.findByText(/No pudimos activar las notificaciones/)).toBeOnTheScreen();
+    expect(screen.queryByText('Permitir notificaciones')).not.toBeOnTheScreen();
+    expect(aviso('Resumen diario')).toHaveProp('value', false);
+  });
+
   test('apagar un aviso no pregunta por el permiso', async () => {
     useBorradorOnboarding.getState().guardarPreferencias({
       usos: ['organizar_casos'],

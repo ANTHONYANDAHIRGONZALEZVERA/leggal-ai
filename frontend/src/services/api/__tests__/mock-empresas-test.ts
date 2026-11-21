@@ -1,6 +1,6 @@
 import { leerCarga } from '../jwt';
 import { reiniciarMock, transporteSimulado, USUARIO_NUEVO } from '../mock';
-import { CODIGOS_DE_PRUEBA, decidirSolicitud, INTENTOS_POR_HORA, RUC_TOMADO } from '../mock-empresas';
+import { APROBAR_LEX_TRAS_MS, CODIGOS_DE_PRUEBA, decidirSolicitud, INTENTOS_POR_HORA, RUC_TOMADO } from '../mock-empresas';
 
 // API simulada de empresas, códigos y solicitudes (B35 y B39), según la
 // propuesta de docs/api/empresas-borrador-frontend.md.
@@ -103,6 +103,35 @@ describe('API simulada: solicitudes de acceso', () => {
     expect((await pedir('DELETE', ruta, undefined, token)).estado).toBe(204);
     expect((await pedir('GET', '/join-requests/me', undefined, token)).datos.solicitudes[0].estado).toBe('cancelada');
     expect((await pedir('DELETE', '/join-requests/me/sol-99', undefined, token)).estado).toBe(404);
+  });
+
+  test('con DIR-8M3 entra directo: la solicitud nace aprobada', async () => {
+    const r = await canjear(CODIGOS_DE_PRUEBA.directo);
+
+    expect(r).toMatchObject({ estado: 201, datos: { solicitud: { estado: 'aprobada', empresa: { id: 'emp-andina' } } } });
+  });
+
+  test('con LEX-4P9 el administrador simulado aprueba solo a los 40 s, no antes', async () => {
+    const { datos } = await canjear(CODIGOS_DE_PRUEBA.estudio);
+    const misSolicitudes = async () => (await pedir('GET', '/join-requests/me', undefined, token)).datos.solicitudes[0].estado;
+    const ahora = Date.now();
+    const reloj = jest.spyOn(Date, 'now');
+
+    reloj.mockReturnValue(ahora + APROBAR_LEX_TRAS_MS - 1_000);
+    expect(await misSolicitudes()).toBe('en_espera');
+
+    reloj.mockReturnValue(ahora + APROBAR_LEX_TRAS_MS);
+    expect(await misSolicitudes()).toBe('aprobada');
+    expect(datos.solicitud.estado).toBe('en_espera');
+    reloj.mockRestore();
+  });
+
+  test('ACC-7K2 no se aprueba solo: espera al administrador', async () => {
+    await canjear(CODIGOS_DE_PRUEBA.accons);
+    const reloj = jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 10 * 60_000);
+
+    expect((await pedir('GET', '/join-requests/me', undefined, token)).datos.solicitudes[0].estado).toBe('en_espera');
+    reloj.mockRestore();
   });
 
   test('después de cancelar se puede volver a pedir', async () => {
