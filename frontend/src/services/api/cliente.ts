@@ -1,6 +1,8 @@
+import { RUTAS_AUTH, type RespuestaSesionApi } from './contrato';
 import { ErrorApi } from './errores';
 import { vencePronto } from './jwt';
 
+/** Tokens guardados en el teléfono: acceso (JWT de 15 min) y refresco (rota en cada uso). */
 export type Tokens = { acceso: string; renovacion: string };
 
 /** Lo mínimo que el cliente usa de una respuesta (lo cumplen fetch y el mock). */
@@ -18,7 +20,8 @@ type OpcionesCliente = {
   /** Cabeceras que van en todas las peticiones (por ejemplo, el dispositivo). */
   cabeceras?: Record<string, string>;
   obtenerTokens: () => Tokens | null;
-  guardarTokens: (tokens: Tokens) => void;
+  /** Guarda lo que devuelve el refresh: tokens nuevos y el usuario al día. */
+  guardarSesion: (sesion: RespuestaSesionApi) => void;
   /** Se llama cuando el servidor ya no acepta la sesión (ni renovándola). */
   alExpirarSesion: () => void;
   limiteMs: number;
@@ -29,9 +32,14 @@ export type Peticion = {
   cuerpo?: unknown;
   /** Rutas sin sesión (login, registro): no llevan token ni intentan renovarlo. */
   publica?: boolean;
+  /**
+   * Envía el token tal como está: sin renovarlo antes ni reintentar tras un
+   * 401. Para cerrar sesión, donde renovar solo para luego revocar no sirve.
+   */
+  sinRenovar?: boolean;
 };
 
-export const RUTA_RENOVAR = '/auth/renovar';
+export const RUTA_REFRESH = RUTAS_AUTH.refresh;
 
 type Resultado = { ok: boolean; estado: number; datos: unknown };
 
@@ -66,15 +74,20 @@ export function crearClienteApi(o: OpcionesCliente) {
     }
   }
 
-  /** true si se obtuvo un token nuevo; false si el servidor rechazó la renovación. */
+  /**
+   * true si se obtuvo un token nuevo; false si el servidor rechazó la sesión.
+   * Solo un 401 cuenta como rechazo (contrato B03): sin red, 5xx o 429 lanzan
+   * el error y la sesión se conserva, porque no dicen nada sobre si sigue válida.
+   */
   function renovar(): Promise<boolean> {
     const tokens = o.obtenerTokens();
     if (!tokens) return Promise.resolve(false);
     renovacionEnCurso ??= (async () => {
       try {
-        const r = await enviar(RUTA_RENOVAR, { metodo: 'POST', cuerpo: { renovacion: tokens.renovacion } });
-        if (!r.ok) return false;
-        o.guardarTokens(r.datos as Tokens);
+        const r = await enviar(RUTA_REFRESH, { metodo: 'POST', cuerpo: { tokenRefresco: tokens.renovacion } });
+        if (r.estado === 401) return false;
+        if (!r.ok) throw ErrorApi.desdeRespuesta(r.estado, r.datos);
+        o.guardarSesion(r.datos as RespuestaSesionApi);
         return true;
       } finally {
         renovacionEnCurso = null;
@@ -96,13 +109,18 @@ export function crearClienteApi(o: OpcionesCliente) {
     let token = opciones.publica ? undefined : o.obtenerTokens()?.acceso;
     // Si al token le queda menos de un minuto, se renueva antes de usarlo:
     // así la petición no falla a mitad de camino.
-    if (token && vencePronto(token)) token = await renovarOExpirar();
+    if (token && !opciones.sinRenovar && vencePronto(token)) token = await renovarOExpirar();
 
     let resultado = await enviar(ruta, opciones, token);
 
-    // El servidor rechazó el token: se renueva una sola vez y se repite la petición.
     if (resultado.estado === 401 && token) {
-      resultado = await enviar(ruta, opciones, await renovarOExpirar());
+      // La sesión fue cerrada (otro dispositivo, robo): renovar no sirve.
+      if (codigoDe(resultado.datos) === 'SESION_REVOCADA') {
+        o.alExpirarSesion();
+      } else if (!opciones.sinRenovar) {
+        // El token venció: se renueva una sola vez y se repite la petición.
+        resultado = await enviar(ruta, opciones, await renovarOExpirar());
+      }
     }
 
     if (!resultado.ok) throw ErrorApi.desdeRespuesta(resultado.estado, resultado.datos);
@@ -110,6 +128,10 @@ export function crearClienteApi(o: OpcionesCliente) {
   }
 
   return { peticion };
+}
+
+function codigoDe(datos: unknown) {
+  return typeof datos === 'object' && datos !== null && 'codigo' in datos ? datos.codigo : undefined;
 }
 
 // Respuestas vacías (204) o que no son JSON no rompen la petición.

@@ -41,7 +41,7 @@ workflow deja un comentario con el error.
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (135)
+## Pruebas actuales (148)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -103,7 +103,7 @@ Pantalla "Crea tu cuenta" (F08, conectada a la API en F09) de punta a punta.
 | Sin aceptar Términos | No crea la cuenta aunque lo demás esté bien |
 | Medidor | Reacciona a la contraseña escrita |
 | Todo correcto | Crea la cuenta y guarda la sesión con el onboarding pendiente |
-| Correo ya registrado | Avisa debajo del campo correo (no como aviso general) y no avanza |
+| Correo ya registrado | Avisa debajo del campo correo (no como aviso general) y no avanza, aunque el backend mande `CORREO_EN_USO` sin `campos` (contrato B03) |
 | Volver | La flecha regresa a la pantalla anterior |
 
 ### Pantalla de Inicio de sesión: `src/features/auth/__tests__/iniciar-sesion-test.tsx` (5)
@@ -141,10 +141,10 @@ Botones del Login que solo existen en desarrollo con la API simulada.
 | Cuenta nueva · Onboarding | Entra con `nuevo@leggal.ai` (onboarding pendiente, "Andrea Ruiz") |
 
 ### Cerrar sesión: `src/features/auth/__tests__/cerrar-sesion-test.ts` (3)
-`cerrarSesion` (F10).
+`cerrarSesion` (F10), según el contrato B03.
 | Prueba | Qué asegura |
 |---|---|
-| Cierre normal | Avisa al servidor con el token de renovación y borra la sesión |
+| Cierre normal | Llama a `POST /auth/logout` con el token, sin renovarlo antes; borra la sesión y el refresh ya no sirve (`SESION_REVOCADA`) |
 | Sin red | La sesión se cierra igual |
 | Sin sesión | No llama al servidor |
 
@@ -155,7 +155,7 @@ Botones del Login que solo existen en desarrollo con la API simulada.
 | Guardar | Al iniciar sesión, usuario y tokens quedan en el almacén cifrado |
 | Borrar | Al cerrar sesión se borran |
 | Recuperar | Al abrir la app se lee la sesión guardada |
-| Token nuevo | Al renovar se guarda el token nuevo |
+| Refresh | Al renovar se guardan los tokens nuevos y el usuario al día que trae la respuesta |
 | Acceso invitado | Sin sesión es "invitado" |
 | Acceso onboarding | Con sesión y onboarding pendiente es "onboarding" |
 | Acceso app | Con sesión y onboarding hecho es "app" |
@@ -173,8 +173,10 @@ Botones del Login que solo existen en desarrollo con la API simulada.
 | Más de 1 min | No vence pronto |
 | No se puede saber | Se usa tal cual |
 
-### Cliente de la API: `src/services/api/__tests__/cliente-test.ts` (19)
+### Cliente de la API: `src/services/api/__tests__/cliente-test.ts` (25)
 `crearClienteApi` (F09), con un transporte falso que registra cada petición.
+Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
+`{ tokenRefresco }` y respuesta de sesión completa.
 | Prueba | Qué asegura |
 |---|---|
 | Petición POST | Arma la URL, manda el cuerpo en JSON y las cabeceras fijas (`X-Dispositivo`) |
@@ -187,30 +189,48 @@ Botones del Login que solo existen en desarrollo con la API simulada.
 | Error 500 sin cuerpo | "El servidor tuvo un problema" |
 | Sin red | Código `SIN_CONEXION` |
 | Sin respuesta a tiempo | Corta la espera y da `TIEMPO_AGOTADO` |
-| Token vencido | Lo renueva una vez (sin mandar el token viejo), lo guarda y repite la petición |
+| Token vencido | Lo renueva una vez con `{ tokenRefresco }` (sin mandar el token viejo), lo guarda y repite la petición |
 | Vencidos a la vez | Tres peticiones comparten una sola renovación |
 | Renovación rechazada | Cierra la sesión, da `SESION_EXPIRADA` y no repite la petición |
 | 401 después de renovar | No entra en un bucle (3 llamadas en total) |
 | Sin red al renovar | No cierra la sesión |
+| Refresh con 503 o 429 | Conserva la sesión y avisa (`ERROR_INTERNO`, `DEMASIADOS_INTENTOS`): solo un 401 la cierra |
+| `SESION_REVOCADA` en una ruta privada | Cierra la sesión sin intentar renovar |
+| Refresh trae usuario | Se guarda la respuesta completa (tokens y usuario) |
 | 401 en el login | No intenta renovar ("Correo o contraseña incorrectos.") |
 | Vence en menos de 1 min (F10) | Lo renueva **antes** de la petición, sin esperar un 401 |
 | Le queda tiempo (F10) | No renueva |
 | Renovación anticipada rechazada (F10) | Cierra la sesión sin hacer la petición |
+| Sin renovar: token por vencer | Lo envía tal cual, sin renovarlo (cerrar sesión) |
+| Sin renovar: 401 | No renueva, no repite y no cierra la sesión por su cuenta |
 
-### API simulada: `src/services/api/__tests__/mock-test.ts` (18)
-`transporteSimulado` (F11). Debe comportarse como el backend.
+### Cabeceras de dispositivo: `src/services/api/__tests__/cabeceras-test.ts` (2)
+`cabecerasDeDispositivo` (contrato B03).
 | Prueba | Qué asegura |
 |---|---|
-| Login demo | Devuelve usuario (con onboarding hecho) y tokens, nunca la contraseña |
-| Token JWT | El de acceso trae `exp`, como los del backend |
-| Contraseña incorrecta | 401 `CREDENCIALES_INVALIDAS` |
+| Plataforma y versión | `X-Dispositivo: android` y `X-Version-App: 1.0.0` por separado |
+| Sin versión | No envía `X-Version-App` |
+
+### API simulada: `src/services/api/__tests__/mock-test.ts` (23)
+`transporteSimulado` (F11). Debe comportarse como el backend según su contrato
+(B03, `docs/api/auth.md`).
+| Prueba | Qué asegura |
+|---|---|
+| Login demo | Respuesta de sesión del contrato (`tokenAcceso`, `tokenRefresco`, `venceEn: 900` y el objeto usuario completo), nunca la contraseña |
+| Token JWT | El de acceso trae `sub`, `tid` (nulo), `sid` y vence en 15 minutos |
+| Contraseña incorrecta | 401 `CREDENCIALES_INVALIDAS` con el formato de error (`campos: null`) |
 | Correo sin cuenta | Mismo error que la contraseña incorrecta (no revela qué correos existen) |
-| Registro | 201 con el onboarding pendiente, y luego se puede iniciar sesión con esa cuenta |
-| Correo repetido | 409 `CORREO_EN_USO` señalando el campo correo |
+| Registro | 201 sin verificar ni onboarding, y luego se puede iniciar sesión con esa cuenta |
+| Correo repetido | 409 `CORREO_EN_USO` con `campos: null` |
+| Sin aceptar términos | 400 `VALIDACION` señalando `aceptaTerminos` |
 | reiniciarMock | Borra las cuentas creadas |
-| Renovar | Cambia el token de renovación por tokens nuevos |
-| Rotación | Cada token de renovación sirve una sola vez |
-| Cerrar sesión | 204 y el token de renovación deja de servir |
+| Refresh | Entrega tokens nuevos de la misma sesión (`sid`) y el usuario |
+| Refresh inventado | 401 `REFRESCO_INVALIDO` |
+| Refresh reusado | Se toma como robo: 401 `SESION_REVOCADA` y se cierran todas las sesiones de la persona |
+| Logout | 204 con `Bearer`; cierra solo esa sesión, la otra sigue |
+| Logout repetido / sin token | Idempotente (204); sin token 401 `NO_AUTENTICADO` |
+| Me | Usuario, `empresaActivaId: null` y `empresas: []` |
+| Me con sesión cerrada | 401 `SESION_REVOCADA` |
 | Ruta desconocida | 404 que dice qué ruta falta |
 | Rutas de @usuario sin token o con token falso (F30) | 401: son privadas |
 | Disponible / tomado (F30) | `disponible: true` para uno libre y `false` para uno tomado |
@@ -281,6 +301,10 @@ prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
   navegación fallaron. Luego se restauró.
 - 15 nov 2026 (F30): se quitó la revisión del @usuario al tocar Continuar y
   falló la prueba "Continuar enseguida". Luego se restauró.
+- 21 nov 2026 (contrato B03): se hizo que el cliente cerrara la sesión con
+  cualquier fallo del refresh (no solo un 401) y fallaron las 2 pruebas de
+  503/429; se hizo que ignorara `SESION_REVOCADA` y falló su prueba. Luego se
+  restauró.
 
 ## Pendiente
 - Flujos completos en el teléfono con Maestro (según CLAUDE.md del frontend).

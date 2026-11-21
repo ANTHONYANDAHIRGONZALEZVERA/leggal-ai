@@ -4,6 +4,7 @@ import { Text } from 'react-native';
 
 import RootLayout from '@/app/_layout';
 import Entrada from '@/app/index';
+import { sesionDePrueba } from '@/pruebas/sesion';
 import { useSesion } from '@/services/sesion';
 
 // Navegación según la sesión (F10), con el enrutador real de Expo Router y el
@@ -33,8 +34,7 @@ const rutas = {
   '(tabs)/inicio': pantalla('Inicio'),
 };
 
-const TOKENS = { acceso: 'acceso-1', renovacion: 'renovacion-1' };
-const usuario = (onboardingCompleto: boolean) => ({ id: 'u1', nombre: 'Ana', correo: 'ana@empresa.com', onboardingCompleto });
+const sesion = (onboardingCompleto: boolean) => sesionDePrueba({ usuario: { onboardingCompleto } });
 
 beforeEach(() => useSesion.getState().cerrar());
 
@@ -47,7 +47,7 @@ describe('Navegación según la sesión', () => {
   });
 
   test('con la sesión guardada, abre directo en Inicio (sin pasar por el Login)', async () => {
-    useSesion.getState().iniciar({ usuario: usuario(true), tokens: TOKENS });
+    useSesion.getState().iniciar(sesion(true));
 
     await renderRouter(rutas);
 
@@ -56,7 +56,7 @@ describe('Navegación según la sesión', () => {
   });
 
   test('con sesión pero sin terminar el onboarding, abre en el paso 1/5', async () => {
-    useSesion.getState().iniciar({ usuario: usuario(false), tokens: TOKENS });
+    useSesion.getState().iniciar(sesion(false));
 
     await renderRouter(rutas);
 
@@ -67,7 +67,7 @@ describe('Navegación según la sesión', () => {
     await renderRouter(rutas, { initialUrl: '/iniciar-sesion' });
     expect(await screen.findByText('Login')).toBeOnTheScreen();
 
-    await act(() => useSesion.getState().iniciar({ usuario: usuario(true), tokens: TOKENS }));
+    await act(() => useSesion.getState().iniciar(sesion(true)));
 
     expect(await screen.findByText('Inicio')).toBeOnTheScreen();
     expect(screen).toHavePathname('/inicio');
@@ -77,7 +77,7 @@ describe('Navegación según la sesión', () => {
     await renderRouter(rutas, { initialUrl: '/iniciar-sesion' });
     await screen.findByText('Login');
 
-    await act(() => useSesion.getState().iniciar({ usuario: usuario(false), tokens: TOKENS }));
+    await act(() => useSesion.getState().iniciar(sesion(false)));
     expect(await screen.findByText('Perfil')).toBeOnTheScreen();
 
     await act(() => useSesion.getState().completarOnboarding());
@@ -85,7 +85,7 @@ describe('Navegación según la sesión', () => {
   });
 
   test('al cerrar sesión vuelve al Splash', async () => {
-    useSesion.getState().iniciar({ usuario: usuario(true), tokens: TOKENS });
+    useSesion.getState().iniciar(sesion(true));
     await renderRouter(rutas);
     await screen.findByText('Inicio');
 
@@ -103,7 +103,7 @@ describe('Navegación según la sesión', () => {
   });
 
   test('con sesión, el Login ya no está disponible', async () => {
-    useSesion.getState().iniciar({ usuario: usuario(true), tokens: TOKENS });
+    useSesion.getState().iniciar(sesion(true));
 
     await renderRouter(rutas, { initialUrl: '/iniciar-sesion' });
 

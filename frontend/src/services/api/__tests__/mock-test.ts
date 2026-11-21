@@ -1,54 +1,73 @@
 import { esquemaUsuario } from '@/features/onboarding/usuario';
 
-import { leerVencimiento } from '../jwt';
+import { leerCarga, leerVencimiento } from '../jwt';
 import { reiniciarMock, transporteSimulado, USUARIO_DEMO, VIDA_TOKEN_MS } from '../mock';
 
-// API simulada (F11). Debe responder como el backend para que lo probado con
-// ella siga valiendo cuando se conecte el servidor real.
+// API simulada (F11). Debe responder como el backend según su contrato (B03,
+// docs/api/auth.md) para que lo probado con ella siga valiendo con el servidor real.
 
-/** Hace una petición POST a la API simulada y devuelve estado y cuerpo. */
-async function post(ruta: string, cuerpo: Record<string, string>) {
+// datos es "any": cada prueba lee los campos que espera de la respuesta.
+type Respuesta = { estado: number; ok: boolean; datos: any };
+
+/** Hace una petición a la API simulada y devuelve estado y cuerpo. */
+async function pedir(metodo: string, ruta: string, cuerpo?: object, token?: string): Promise<Respuesta> {
   const r = await transporteSimulado(`https://cualquier.dominio${ruta}`, {
-    method: 'POST',
-    headers: {},
-    body: JSON.stringify(cuerpo),
+    method: metodo,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
   });
   const texto = await r.text();
   return { estado: r.status, ok: r.ok, datos: texto ? JSON.parse(texto) : undefined };
 }
 
+const post = (ruta: string, cuerpo: object = {}, token?: string) => pedir('POST', ruta, cuerpo, token);
+const entrarDemo = () => post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+const REGISTRO = { nombre: 'Ana Pérez', correo: 'ana@empresa.com', contrasena: 'Leggal2026!', aceptaTerminos: true };
+
 beforeEach(() => reiniciarMock());
 
 describe('API simulada: inicio de sesión', () => {
-  test('el usuario demo entra y recibe sus datos y tokens', async () => {
-    const r = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+  test('el usuario demo entra con la respuesta de sesión del contrato', async () => {
+    const r = await entrarDemo();
 
     expect(r.estado).toBe(200);
-    expect(r.datos.usuario).toEqual({
-      id: 'usr-demo',
-      nombre: 'Usuario Demo',
-      correo: 'demo@leggal.ai',
-      onboardingCompleto: true,
+    expect(r.datos).toEqual({
+      tokenAcceso: expect.any(String),
+      tokenRefresco: expect.any(String),
+      venceEn: 900,
+      usuario: {
+        id: 'usr-demo',
+        nombre: 'Usuario Demo',
+        nombreVisible: 'Usuario Demo',
+        nombreUsuario: 'usuario.demo',
+        correo: 'demo@leggal.ai',
+        correoVerificado: true,
+        onboardingCompleto: true,
+        creadoEn: '2026-11-11T00:00:00.000Z',
+      },
     });
-    expect(r.datos.tokens).toEqual({ acceso: expect.any(String), renovacion: expect.any(String) });
     // Nunca devuelve la contraseña.
     expect(JSON.stringify(r.datos)).not.toContain(USUARIO_DEMO.contrasena);
   });
 
-  test('el token de acceso es un JWT con vencimiento, como los del backend', async () => {
+  test('el token de acceso es un JWT de 15 minutos con sub, tid y sid', async () => {
     const antes = Date.now();
-    const r = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+    const { datos } = await entrarDemo();
 
-    const vence = leerVencimiento(r.datos.tokens.acceso);
+    expect(leerCarga(datos.tokenAcceso)).toMatchObject({ sub: 'usr-demo', tid: null, sid: expect.any(String) });
+    const vence = leerVencimiento(datos.tokenAcceso);
     // "exp" va en segundos: se tolera el redondeo de hasta 1 s.
     expect(vence).toBeGreaterThan(antes + VIDA_TOKEN_MS - 1000);
     expect(vence).toBeLessThanOrEqual(Date.now() + VIDA_TOKEN_MS);
   });
 
-  test('con contraseña incorrecta responde 401 "credenciales inválidas"', async () => {
+  test('con contraseña incorrecta responde 401 CREDENCIALES_INVALIDAS con el formato de error', async () => {
     const r = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: 'otra' });
 
-    expect(r).toMatchObject({ estado: 401, datos: { codigo: 'CREDENCIALES_INVALIDAS' } });
+    expect(r).toMatchObject({
+      estado: 401,
+      datos: { codigo: 'CREDENCIALES_INVALIDAS', mensaje: expect.any(String), campos: null },
+    });
   });
 
   test('un correo sin cuenta da el mismo error (no revela qué correos existen)', async () => {
@@ -60,68 +79,124 @@ describe('API simulada: inicio de sesión', () => {
 });
 
 describe('API simulada: registro', () => {
-  test('crea la cuenta (201) y después se puede iniciar sesión con ella', async () => {
-    const registro = await post('/auth/registro', { nombre: 'Ana Pérez', correo: 'ana@empresa.com', contrasena: 'Leggal2026!' });
-    expect(registro.estado).toBe(201);
-    // Una cuenta nueva empieza sin onboarding: la app la lleva al paso 1/5.
-    expect(registro.datos.usuario).toMatchObject({ nombre: 'Ana Pérez', correo: 'ana@empresa.com', onboardingCompleto: false });
+  test('crea la cuenta (201) sin verificar ni onboarding, y después se puede iniciar sesión', async () => {
+    const registro = await post('/auth/register', REGISTRO);
 
-    const login = await post('/auth/login', { correo: 'ana@empresa.com', contrasena: 'Leggal2026!' });
+    expect(registro.estado).toBe(201);
+    expect(registro.datos.usuario).toMatchObject({
+      nombre: 'Ana Pérez',
+      nombreVisible: null,
+      nombreUsuario: null,
+      correo: 'ana@empresa.com',
+      correoVerificado: false,
+      onboardingCompleto: false,
+    });
+    expect(registro.datos.tokenRefresco).toEqual(expect.any(String));
+
+    const login = await post('/auth/login', { correo: REGISTRO.correo, contrasena: REGISTRO.contrasena });
     expect(login.estado).toBe(200);
   });
 
-  test('un correo ya registrado responde 409 y señala el campo correo', async () => {
-    const r = await post('/auth/registro', { nombre: 'Otra', correo: USUARIO_DEMO.correo, contrasena: 'Leggal2026!' });
+  test('un correo ya registrado responde 409 CORREO_EN_USO sin campos', async () => {
+    const r = await post('/auth/register', { ...REGISTRO, correo: USUARIO_DEMO.correo });
+
+    expect(r).toMatchObject({ estado: 409, datos: { codigo: 'CORREO_EN_USO', campos: null } });
+  });
+
+  test('sin aceptar los términos responde 400 VALIDACION señalando el campo', async () => {
+    const r = await post('/auth/register', { ...REGISTRO, aceptaTerminos: false });
 
     expect(r).toMatchObject({
-      estado: 409,
-      datos: { codigo: 'CORREO_EN_USO', campos: { correo: 'Ya existe una cuenta con este correo' } },
+      estado: 400,
+      datos: { codigo: 'VALIDACION', campos: { aceptaTerminos: expect.any(String) } },
     });
   });
 
   test('reiniciarMock borra las cuentas creadas', async () => {
-    await post('/auth/registro', { nombre: 'Ana', correo: 'ana@empresa.com', contrasena: 'Leggal2026!' });
+    await post('/auth/register', REGISTRO);
     reiniciarMock();
 
-    const login = await post('/auth/login', { correo: 'ana@empresa.com', contrasena: 'Leggal2026!' });
+    const login = await post('/auth/login', { correo: REGISTRO.correo, contrasena: REGISTRO.contrasena });
     expect(login.estado).toBe(401);
   });
 });
 
-describe('API simulada: renovación', () => {
-  test('cambia un token de renovación válido por tokens nuevos', async () => {
-    const { datos } = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+describe('API simulada: refresh', () => {
+  test('cambia un tokenRefresco válido por una sesión nueva de la misma sesión (sid)', async () => {
+    const { datos } = await entrarDemo();
 
-    const r = await post('/auth/renovar', { renovacion: datos.tokens.renovacion });
+    const r = await post('/auth/refresh', { tokenRefresco: datos.tokenRefresco });
 
     expect(r.estado).toBe(200);
-    expect(r.datos.acceso).not.toBe(datos.tokens.acceso);
+    expect(r.datos.tokenAcceso).not.toBe(datos.tokenAcceso);
+    expect(r.datos.tokenRefresco).not.toBe(datos.tokenRefresco);
+    expect(r.datos.usuario.id).toBe('usr-demo');
+    expect(leerCarga(r.datos.tokenAcceso)?.sid).toBe(leerCarga(datos.tokenAcceso)?.sid);
   });
 
-  test('cada token de renovación sirve una sola vez', async () => {
-    const { datos } = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
-    await post('/auth/renovar', { renovacion: datos.tokens.renovacion });
+  test('un tokenRefresco que no existe responde 401 REFRESCO_INVALIDO', async () => {
+    const r = await post('/auth/refresh', { tokenRefresco: 'inventado' });
 
-    const repetido = await post('/auth/renovar', { renovacion: datos.tokens.renovacion });
+    expect(r).toMatchObject({ estado: 401, datos: { codigo: 'REFRESCO_INVALIDO' } });
+  });
 
-    expect(repetido).toMatchObject({ estado: 401, datos: { codigo: 'SESION_EXPIRADA' } });
+  test('reusar un tokenRefresco ya usado se toma como robo y cierra todas las sesiones', async () => {
+    const telefono = (await entrarDemo()).datos;
+    const otroEquipo = (await entrarDemo()).datos;
+    await post('/auth/refresh', { tokenRefresco: telefono.tokenRefresco });
+
+    const repetido = await post('/auth/refresh', { tokenRefresco: telefono.tokenRefresco });
+
+    expect(repetido).toMatchObject({ estado: 401, datos: { codigo: 'SESION_REVOCADA' } });
+    // La otra sesión de la misma persona también quedó cerrada.
+    const otro = await post('/auth/refresh', { tokenRefresco: otroEquipo.tokenRefresco });
+    expect(otro).toMatchObject({ estado: 401, datos: { codigo: 'SESION_REVOCADA' } });
   });
 });
 
-describe('API simulada: cerrar sesión', () => {
-  test('responde 204 y el token de renovación deja de servir', async () => {
-    const { datos } = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
+describe('API simulada: logout y me', () => {
+  test('logout (con Bearer) responde 204 y cierra solo esa sesión', async () => {
+    const telefono = (await entrarDemo()).datos;
+    const otroEquipo = (await entrarDemo()).datos;
 
-    const salir = await post('/auth/salir', { renovacion: datos.tokens.renovacion });
+    const salir = await post('/auth/logout', undefined, telefono.tokenAcceso);
     expect(salir.estado).toBe(204);
 
-    const renovar = await post('/auth/renovar', { renovacion: datos.tokens.renovacion });
-    expect(renovar.estado).toBe(401);
+    expect((await post('/auth/refresh', { tokenRefresco: telefono.tokenRefresco })).estado).toBe(401);
+    expect((await post('/auth/refresh', { tokenRefresco: otroEquipo.tokenRefresco })).estado).toBe(200);
+  });
+
+  test('logout es idempotente y sin token responde 401 NO_AUTENTICADO', async () => {
+    const { datos } = await entrarDemo();
+
+    await post('/auth/logout', undefined, datos.tokenAcceso);
+    expect((await post('/auth/logout', undefined, datos.tokenAcceso)).estado).toBe(204);
+    expect(await post('/auth/logout')).toMatchObject({ estado: 401, datos: { codigo: 'NO_AUTENTICADO' } });
+  });
+
+  test('me devuelve el usuario y sus empresas (vacías en la semana 1)', async () => {
+    const { datos } = await entrarDemo();
+
+    const r = await pedir('GET', '/auth/me', undefined, datos.tokenAcceso);
+
+    expect(r).toMatchObject({
+      estado: 200,
+      datos: { usuario: { id: 'usr-demo', correo: 'demo@leggal.ai' }, empresaActivaId: null, empresas: [] },
+    });
+  });
+
+  test('me con una sesión cerrada responde 401 SESION_REVOCADA', async () => {
+    const { datos } = await entrarDemo();
+    await post('/auth/logout', undefined, datos.tokenAcceso);
+
+    const r = await pedir('GET', '/auth/me', undefined, datos.tokenAcceso);
+
+    expect(r).toMatchObject({ estado: 401, datos: { codigo: 'SESION_REVOCADA' } });
   });
 });
 
 test('una ruta que la API simulada no conoce responde 404 explicando cuál falta', async () => {
-  const r = await post('/casos', {});
+  const r = await post('/casos');
 
   expect(r).toMatchObject({ estado: 404, datos: { codigo: 'NO_ENCONTRADO', mensaje: expect.stringContaining('POST /casos') } });
 });
@@ -130,7 +205,7 @@ describe('API simulada: @usuario (F30)', () => {
   /** Inicia sesión con la cuenta demo y devuelve su token de acceso. */
   async function tokenDemo() {
     const { datos } = await post('/auth/login', { correo: USUARIO_DEMO.correo, contrasena: USUARIO_DEMO.contrasena });
-    return datos.tokens.acceso as string;
+    return datos.tokenAcceso as string;
   }
 
   async function get(ruta: string, token?: string) {
