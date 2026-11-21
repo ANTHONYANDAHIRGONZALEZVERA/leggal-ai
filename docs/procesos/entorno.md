@@ -71,11 +71,17 @@ Notas de security-guidance:
   no arranca, instalar con `--allow-scripts=<nombre-del-paquete>`.
 - Cada persona usa su propia cuenta de Expo y su propia sesión de Claude Code;
   nunca se suben al repositorio.
+- Si Prisma da `P1010: User was denied access` aunque Docker esté `healthy`,
+  probablemente hay un PostgreSQL instalado en Windows (servicio
+  `postgresql-x64-17`) ocupando el puerto 5432. Se comprueba en PowerShell con
+  `Get-NetTCPConnection -LocalPort 5432 -State Listen`. Solución: en el `.env`
+  poner `POSTGRES_PUERTO=5433`, cambiar el puerto de `DATABASE_URL` a 5433 y
+  correr `docker compose up -d` otra vez.
 
 ## Servicios en Docker
 | Servicio | Imagen y versión | Puerto |
 |---|---|---|
-| PostgreSQL + pgvector | pgvector/pgvector:0.8.7-pg16-bookworm | 5432 |
+| PostgreSQL + pgvector | pgvector/pgvector:0.8.7-pg16-bookworm | 5432 (configurable con `POSTGRES_PUERTO`) |
 | Redis | redis:7.4.12-bookworm | 6379 |
 
 Los dos tienen healthcheck (`pg_isready` y `redis-cli ping`). Con
@@ -95,6 +101,7 @@ Los dos tienen healthcheck (`pg_isready` y `redis-cli ping`). Con
    Login muestra dos botones para entrar con ellas sin escribir.
 8. En backend/: `docker compose up -d` y esperar a que `docker compose ps`
    muestre los dos servicios como `healthy`.
-9. En backend/: `npx prisma generate` y luego `npm run start:dev`.
+9. En backend/: `npx prisma migrate dev` (aplica las migraciones), luego
+   `npx prisma generate` y `npm run start:dev`.
    Prisma necesita el `.env` del paso 7: sin `DATABASE_URL` falla con
    `Cannot resolve environment variable: DATABASE_URL`.
