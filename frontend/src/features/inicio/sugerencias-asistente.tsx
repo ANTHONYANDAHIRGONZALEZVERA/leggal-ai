@@ -1,18 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 
 import { Icono, type NombreIcono } from '@/components/icono';
 import { Texto } from '@/components/texto';
 import { colors, fontFamily } from '@/theme';
+import { bucleDesde } from '@/utils/animacion';
 
 type Sugerencia = { accion: string; resto: string; icono: NombreIcono; fondo: string; color: string };
 
@@ -115,17 +108,22 @@ export function desplazamiento(avance: number, anchoCopia: number, haciaDerecha:
  * Reanimated, como la esfera: corre en el hilo de UI y React no vuelve a
  * dibujar nada en cada cuadro.
  */
-function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha }: Fila) {
+function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha, pausada }: Fila & { pausada?: boolean }) {
   const anchoCopia = useSharedValue(0);
   const avance = useSharedValue(0);
-  useEffect(() => () => cancelAnimation(avance), [avance]);
+  // Se mueve solo cuando ya se midió y la pantalla está a la vista. Al
+  // reanudar sigue donde quedó, sin saltar.
+  const [medida, setMedida] = useState(false);
+  useEffect(() => {
+    if (!medida || pausada) return;
+    avance.set(bucleDesde(avance.get(), 1, duracion));
+    return () => cancelAnimation(avance);
+  }, [medida, pausada, duracion, avance]);
 
   function medir(ancho: number) {
     if (ancho <= 0 || ancho === anchoCopia.get()) return;
     anchoCopia.set(ancho);
-    cancelAnimation(avance);
-    avance.set(0);
-    avance.set(withRepeat(withTiming(1, { duration: duracion, easing: Easing.linear }), -1));
+    setMedida(true);
   }
 
   const estilo = useAnimatedStyle(() => ({
@@ -156,7 +154,7 @@ function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha }: Fila) {
 // Sugerencias del asistente en el Inicio (diseño "Main"). El asistente todavía
 // no existe: se muestran sin acción. Con "reducir movimiento" no se mueven y se
 // pueden deslizar con el dedo.
-export function SugerenciasAsistente() {
+export function SugerenciasAsistente({ pausada }: { pausada?: boolean }) {
   const reducido = useReducedMotion();
 
   return (
@@ -173,7 +171,7 @@ export function SugerenciasAsistente() {
             ))}
           </ScrollView>
         ) : (
-          <FilaEnMovimiento key={fila.sugerencias[0].accion} {...fila} />
+          <FilaEnMovimiento key={fila.sugerencias[0].accion} {...fila} pausada={pausada} />
         ),
       )}
       {/* Bordes que se desvanecen, como la máscara del diseño. */}

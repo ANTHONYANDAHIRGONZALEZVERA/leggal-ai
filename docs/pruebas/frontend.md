@@ -45,7 +45,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (383)
+## Pruebas actuales (390)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -485,7 +485,7 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Otros símbolos | No se admiten ("-", "!") |
 | Símbolos seguidos o al final | No se admiten |
 
-### Inicio: `src/features/inicio/__tests__/inicio-test.tsx` (16)
+### Inicio: `src/features/inicio/__tests__/inicio-test.tsx` (18)
 Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión real.
 | Prueba | Qué asegura |
 |---|---|
@@ -498,8 +498,16 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
 | Próximamente (3) | Selector de espacio, lupa y campana avisan que llegan pronto |
 | El aviso se va solo | A los 2,2 s desaparece |
 | Avatar | Lleva a Más |
+| Pausa (2) | A la vista, esferas, anillo y ondas se animan; en otra pestaña se pausan (las pestañas nativas dejan Inicio montado) |
 | Asistente | Se ve (sugerencias y caja) pero no se puede tocar; sin "Continuar chat" (no hay chats reales) |
 | Sugerencias en movimiento (4) | La 1 y la 3 hacia la derecha y la 2 hacia la izquierda; cada ciclo corre exactamente una copia (sin salto). En Jest la animación no corre: se prueba `desplazamiento`. Que en el teléfono se mueva sola se revisa a mano |
+
+### Reanudar sin salto: `src/utils/__tests__/animacion-test.ts` (5)
+`tiempoRestante`: al reanudar una animación pausada se termina solo lo que faltaba de la vuelta en curso.
+| Prueba | Qué asegura |
+|---|---|
+| Vueltas (4) | Desde 0 una vuelta entera; a la mitad, media; casi al final, casi nada; pasada una vuelta, solo lo de la actual |
+| Otra medida | Sirve para vueltas de 2π (giro de la esfera) |
 
 ### Espacio activo: `src/features/inicio/__tests__/espacio-test.ts` (5)
 | Prueba | Qué asegura |
@@ -571,6 +579,8 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
   "Ahora no" que deja a la persona trabada (1), preguntar con acceso inmediato
   (1), prometer avisos sin permiso (2) y ofrecerlos con la solicitud aprobada
   (1). Luego se restauró.
+- 21 nov 2026 (pausa del Inicio): nunca pausar (falló 1) y reanudar con una
+  vuelta entera, que da un salto (4). Luego se restauró.
 - 21 nov 2026 (sugerencias del Inicio): todas hacia el mismo lado (falló 1) y
   recorrer media copia (2). Luego se restauró.
 - 21 nov 2026 (Inicio): contar una solicitud pendiente como espacio activo

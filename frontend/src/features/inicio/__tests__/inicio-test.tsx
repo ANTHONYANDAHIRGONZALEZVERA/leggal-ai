@@ -1,5 +1,9 @@
 import { act, fireEvent, screen, userEvent } from '@testing-library/react-native';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
+
+import { Anillo } from '@/components/anillo';
+import { Esfera } from '@/components/esfera';
+import { Ondas } from '@/components/ondas';
 
 import Inicio from '@/app/(tabs)/inicio';
 import { DURACION_AVISO_MS } from '@/components/aviso-flotante';
@@ -15,11 +19,11 @@ import { useSesion } from '@/services/sesion';
 import { DESCRIPCION_SUGERENCIAS, desplazamiento, FILAS } from '../sugerencias-asistente';
 
 jest.mock('@/components/icono', () => ({ Icono: () => null }));
-jest.mock('@/components/esfera', () => ({ Esfera: () => null }));
-jest.mock('@/components/ondas', () => ({ Ondas: () => null }));
-jest.mock('@/components/anillo', () => ({ Anillo: () => null }));
+jest.mock('@/components/esfera', () => ({ Esfera: jest.fn(() => null) }));
+jest.mock('@/components/ondas', () => ({ Ondas: jest.fn(() => null) }));
+jest.mock('@/components/anillo', () => ({ Anillo: jest.fn(() => null) }));
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
-jest.mock('expo-router', () => ({ router: { navigate: jest.fn(), push: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { navigate: jest.fn(), push: jest.fn() }, useIsFocused: jest.fn(() => true) }));
 
 const PREFERENCIAS = { usos: ['resumir_documentos' as const], canal: 'ambos' as const, notificaciones: { plazos: false, resumenDiario: false } };
 
@@ -147,6 +151,25 @@ describe('Inicio', () => {
     await user.press(screen.getByRole('button', { name: 'Mi perfil y cuenta' }));
 
     expect(router.navigate).toHaveBeenCalledWith('/mas');
+  });
+
+  test.each([
+    ['a la vista, se animan', true, false],
+    ['en otra pestaña, se pausan (no gastan batería sin verse)', false, true],
+  ])('esferas, anillo y ondas: %s', async (_caso, enfocada, pausada) => {
+    jest.mocked(useIsFocused).mockReturnValue(enfocada);
+    await entrar(USUARIO_DEMO);
+    await renderizar(<Inicio />);
+
+    const ultimas = [Esfera, Anillo, Ondas].map((c) => jest.mocked(c).mock.calls.at(-1)?.[0]);
+    expect(ultimas).toEqual([
+      expect.objectContaining({ pausada }),
+      expect.objectContaining({ pausada }),
+      expect.objectContaining({ pausada }),
+    ]);
+    // Las dos esferas.
+    expect(jest.mocked(Esfera).mock.calls.slice(-2).map(([p]) => p.pausada)).toEqual([pausada, pausada]);
+    jest.mocked(useIsFocused).mockReturnValue(true);
   });
 
   test('el asistente se ve pero no se puede tocar todavía', async () => {

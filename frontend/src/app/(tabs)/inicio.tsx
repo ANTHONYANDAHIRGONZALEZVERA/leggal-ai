@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
 import { ScrollView, useWindowDimensions, View } from 'react-native';
@@ -31,6 +32,9 @@ export default function Inicio() {
   const { espacio, cargando } = useEspacioActivo();
   const [aviso, setAviso] = useState<string | null>(null);
   const quitarAviso = useCallback(() => setAviso(null), []);
+  // Las pestañas nativas dejan Inicio montado al cambiar de pestaña: sin esto,
+  // esferas, ondas, sugerencias y micrófono seguirían animándose sin verse.
+  const pausada = !useIsFocused();
 
   const nombre = usuario?.nombreVisible ?? usuario?.nombre ?? '';
   const paraQuien = espacio?.tipo === 'empresa' ? 'Personalizado para tu despacho' : 'Personalizado para ti';
@@ -53,10 +57,10 @@ export default function Inicio() {
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
           style={{ height: ALTO_ESCENA, overflow: 'hidden' }}>
-          <Anillo ancho={230 * x} alto={150 * x} style={{ position: 'absolute', left: -70 * x, top: 96 }} />
-          <Esfera ancho={318 * x} alto={204 * x} ciclo={14000} flotar style={{ position: 'absolute', left: 36 * x, top: 18 }} />
-          <Esfera ancho={150 * x} alto={96 * x} ciclo={11000} style={{ position: 'absolute', right: -46 * x, top: 150 }} />
-          <Ondas juego="inicio" style={{ position: 'absolute', left: 0, right: 0, bottom: 6 }} />
+          <Anillo ancho={230 * x} alto={150 * x} pausada={pausada} style={{ position: 'absolute', left: -70 * x, top: 96 }} />
+          <Esfera ancho={318 * x} alto={204 * x} ciclo={14000} flotar pausada={pausada} style={{ position: 'absolute', left: 36 * x, top: 18 }} />
+          <Esfera ancho={150 * x} alto={96 * x} ciclo={11000} pausada={pausada} style={{ position: 'absolute', right: -46 * x, top: 150 }} />
+          <Ondas juego="inicio" pausada={pausada} style={{ position: 'absolute', left: 0, right: 0, bottom: 6 }} />
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 110, backgroundImage: gradients.desvanecer }} />
         </View>
 
@@ -100,11 +104,11 @@ export default function Inicio() {
         </View>
 
         <Aparecer retraso={240} style={{ marginTop: 22 }}>
-          <SugerenciasAsistente />
+          <SugerenciasAsistente pausada={pausada} />
         </Aparecer>
 
         <View style={{ flex: 1, minHeight: 16 }} />
-        <CajaPregunta />
+        <CajaPregunta pausada={pausada} />
       </ScrollView>
 
       <AvisoFlotante mensaje={aviso} onTerminar={quitarAviso} />

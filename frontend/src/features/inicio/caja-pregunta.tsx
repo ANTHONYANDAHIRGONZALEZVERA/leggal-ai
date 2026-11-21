@@ -14,7 +14,7 @@ const latir: CSSAnimationKeyframes = {
 
 // Caja "Pregunta sobre tus casos…" con el micrófono, como en el diseño. El
 // asistente todavía no existe: se ve, pero no recibe texto ni toques.
-export function CajaPregunta() {
+export function CajaPregunta({ pausada }: { pausada?: boolean }) {
   const reducido = useReducedMotion();
 
   return (
@@ -50,6 +50,7 @@ export function CajaPregunta() {
               animationDuration: 2600,
               animationIterationCount: 'infinite',
               animationTimingFunction: 'ease-out',
+              animationPlayState: pausada ? 'paused' : 'running',
             }}
           />
         )}

@@ -45,10 +45,12 @@ const juegos = {
 
 type Props = {
   juego: keyof typeof juegos;
+  /** Detiene las ondas donde van (pantalla que no está a la vista). */
+  pausada?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-export function Ondas({ juego, style }: Props) {
+export function Ondas({ juego, pausada, style }: Props) {
   const { width } = useWindowDimensions();
   const reducido = useReducedMotion();
   const { alto, capas } = juegos[juego];
@@ -78,6 +80,7 @@ export function Ondas({ juego, style }: Props) {
               animationIterationCount: 'infinite',
               animationTimingFunction: 'linear',
               animationDirection: capa.inversa ? 'reverse' : 'normal',
+              animationPlayState: pausada ? 'paused' : 'running',
             },
           ]}>
           <Canvas style={{ width: width * 2, height: alto }}>
