@@ -21,3 +21,20 @@ jest.mock('expo-secure-store', () => {
     __vaciar: () => datos.clear(),
   };
 });
+
+// @expo/ui dibuja vistas nativas (SwiftUI / Compose) que en Jest quedan como
+// cajas vacías sin texto. Se reemplaza por equivalentes simples: la hoja
+// muestra su contenido solo si está abierta y los botones se pueden tocar.
+jest.mock('@expo/ui', () => {
+  const { createElement } = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  const Contenedor = ({ children }: { children?: unknown }) => createElement(View, null, children);
+  return {
+    Host: Contenedor,
+    Column: Contenedor,
+    BottomSheet: ({ isPresented, children }: { isPresented: boolean; children?: unknown }) =>
+      isPresented ? createElement(View, { testID: 'hoja' }, children) : null,
+    Button: ({ label, onPress }: { label: string; onPress?: () => void }) =>
+      createElement(Pressable, { accessibilityRole: 'button', onPress }, createElement(Text, null, label)),
+  };
+});

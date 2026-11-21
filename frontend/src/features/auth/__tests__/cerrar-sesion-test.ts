@@ -17,15 +17,18 @@ async function entrarConDemo() {
 }
 
 describe('cerrarSesion', () => {
-  test('borra la sesión del teléfono y avisa al servidor con el token de renovación', async () => {
+  test('borra la sesión del teléfono y avisa al servidor con POST /auth/logout, sin renovar antes', async () => {
     await entrarConDemo();
     const { renovacion } = useSesion.getState().tokens!;
     const peticion = jest.spyOn(api, 'peticion');
 
     await cerrarSesion();
 
-    expect(peticion).toHaveBeenCalledWith('/auth/salir', { metodo: 'POST', cuerpo: { renovacion }, publica: true });
+    expect(peticion).toHaveBeenCalledWith('/auth/logout', { metodo: 'POST', sinRenovar: true });
     expect(useSesion.getState()).toMatchObject({ usuario: null, tokens: null });
+    // El servidor revocó la sesión: su refresh ya no sirve.
+    const refresh = api.peticion('/auth/refresh', { metodo: 'POST', cuerpo: { tokenRefresco: renovacion }, publica: true });
+    await expect(refresh).rejects.toMatchObject({ codigo: 'SESION_REVOCADA' });
   });
 
   test('si el servidor no responde (sin red), la sesión se cierra igual', async () => {

@@ -35,7 +35,15 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Leggal AI usa la cámara solo cuando tocas Tomar foto, para tu foto de perfil.",
+          "photosPermission": "Leggal AI abre tus fotos solo para que elijas tu foto de perfil.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
