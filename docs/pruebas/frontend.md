@@ -45,7 +45,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (344)
+## Pruebas actuales (350)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -382,7 +382,7 @@ Pantalla "¿Para qué usarás Leggal AI?" (F31) y `esquemaPreferencias`.
 | Android | Crea el canal "avisos" antes de pedir el permiso (Android 13+ lo necesita) |
 | iOS | No crea canales y pide alertas, globo y sonido |
 
-### Onboarding 4/5: `src/features/empresas/__tests__/empresa-test.tsx` (18)
+### Onboarding 4/5: `src/features/empresas/__tests__/empresa-test.tsx` (21)
 Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión real.
 | Prueba | Qué asegura |
 |---|---|
@@ -393,7 +393,10 @@ Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión rea
 | Código vencido | Pide uno nuevo |
 | Borrar un carácter | La empresa desaparece y vuelve a pedir el código completo |
 | Solicitar acceso | Envía la solicitud, la guarda y pasa a "Solicitud enviada" |
-| Acceso inmediato | Con `DIR-8M3` muestra "Inmediato", queda aprobada y sigue al 5/5 |
+| Acceso inmediato | Con `DIR-8M3` muestra "Inmediato", queda aprobada y sigue al 5/5 sin preguntar por avisos |
+| Ofrecer avisos | Sin permiso, después de enviar ofrece los avisos de la aprobación; con Permitir lo pide y sigue |
+| Ahora no | No bloquea: la solicitud sigue enviada y pasa a "Solicitud enviada" |
+| Bloqueado o ya dado | No pregunta y pasa directo |
 | Solicitud pendiente | Lo avisa y deja verla |
 | Pedir otra vez | Avisa que ya hay una solicitud |
 | Pestaña Crear | Razón social, RUC, tamaño y el aviso de administrador |
@@ -404,11 +407,14 @@ Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión rea
 | Ya creada | Al volver no la crea otra vez: solo deja continuar |
 | Pasos anteriores (2) | Sin el 1/5 vuelve al 1/5; en modo Personal vuelve al 3/5 |
 
-### Solicitud enviada: `src/features/empresas/__tests__/solicitud-test.tsx` (7)
+### Solicitud enviada: `src/features/empresas/__tests__/solicitud-test.tsx` (10)
 | Prueba | Qué asegura |
 |---|---|
 | Datos | Empresa, rol y la línea de estado (código validado, revisión en curso, acceso pendiente) |
 | Modo personal | Sigue al 5/5 y la solicitud queda pendiente |
+| Sin avisos | No dice "Te avisaremos": ofrece Activar y, si lo da, ya lo dice |
+| Avisos bloqueados | Ofrece Abrir Ajustes |
+| Aprobada | No ofrece activar avisos |
 | Cancelar: No | Pide confirmación y con "No" no cancela |
 | Cancelar: Sí | La cancela en el servidor, la borra del borrador y vuelve al 4/5; luego se puede volver a pedir |
 | Aprobada | Lo muestra, ya no ofrece cancelar y deja continuar |
@@ -528,6 +534,10 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 - 21 nov 2026 (cédula, códigos simulados y error del permiso): aceptar
   cualquier cédula (fallaron 2), no aprobar sola la solicitud de `LEX-4P9` (1)
   y no atrapar la falla del permiso (2). Luego se restauró.
+- 21 nov 2026 (avisos al unirse): nunca ofrecer los avisos (fallaron 2),
+  "Ahora no" que deja a la persona trabada (1), preguntar con acceso inmediato
+  (1), prometer avisos sin permiso (2) y ofrecerlos con la solicitud aprobada
+  (1). Luego se restauró.
 - 21 nov 2026 (carga esqueleto del 1/5): no mostrarla (falló 1), mostrarla con
   una letra (1) y que nunca se quite (1; al principio no fallaba ninguna, por
   eso se agregó la prueba "si el servidor no tiene sugerencias"). Luego se

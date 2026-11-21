@@ -12,10 +12,12 @@ import { BotonVolver } from '@/components/boton-volver';
 import { Esfera } from '@/components/esfera';
 import { Icono, type NombreIcono } from '@/components/icono';
 import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
+import { Presionable } from '@/components/presionable';
 import { Texto } from '@/components/texto';
 import { TituloDestacado } from '@/components/titulo-destacado';
 import { cancelarSolicitud, claveMisSolicitudes, consultarMisSolicitudes } from '@/features/empresas/api';
 import type { EstadoSolicitud } from '@/features/empresas/contrato';
+import { usePermisoNotificaciones } from '@/features/notificaciones/use-permiso-notificaciones';
 import { useBorradorOnboarding } from '@/features/onboarding/borrador';
 import { colors, fontFamily, spacing } from '@/theme';
 import { conPunto } from '@/utils/texto';
@@ -89,6 +91,7 @@ function pasos(estado: EstadoSolicitud, codigo: string): Paso[] {
 export default function Solicitud() {
   const reducido = useReducedMotion();
   const { perfil, solicitud, guardarSolicitud } = useBorradorOnboarding();
+  const avisos = usePermisoNotificaciones();
 
   // Estado al día desde el servidor (B39), revisado cada 30 s mientras espera.
   const misSolicitudes = useQuery({
@@ -118,6 +121,8 @@ export default function Solicitud() {
 
   const { empresa, rol, codigo } = solicitud;
   const estado = alDia?.estado ?? solicitud.estado;
+  // Sin permiso, "te avisaremos" sería falso: se ofrece activarlos.
+  const sinAvisos = avisos.estado === 'preguntar' || avisos.estado === 'bloqueado';
 
   function confirmarCancelacion() {
     Alert.alert('¿Cancelar la solicitud?', conPunto(`Ya no pedirás unirte a ${empresa.nombre}`), [
@@ -264,8 +269,15 @@ export default function Solicitud() {
               ? conPunto(`Ya eres parte de ${empresa.nombre}`)
               : estado === 'rechazada'
                 ? 'El administrador no aprobó tu solicitud. Puedes usar otro código.'
-                : 'Te avisaremos cuando te aprueben.'}
+                : sinAvisos
+                  ? 'Activa los avisos para saber cuándo te aprueben.'
+                  : 'Te avisaremos cuando te aprueben.'}
           </Texto>
+          {estado === 'en_espera' && sinAvisos && (
+            <Presionable accessibilityRole="button" onPress={() => void avisos.activar()} hitSlop={12}>
+              <Texto variante="enlace">{avisos.estado === 'bloqueado' ? 'Abrir Ajustes' : 'Activar'}</Texto>
+            </Presionable>
+          )}
         </View>
 
         <View style={{ flex: 1, minHeight: spacing.xxl }} />

@@ -1,9 +1,10 @@
 import { screen, userEvent, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import { Alert, type AlertButton } from 'react-native';
+import { Alert, Linking, type AlertButton } from 'react-native';
 
 import Solicitud from '@/app/(onboarding)/solicitud';
 import { iniciarSesion } from '@/features/auth/api';
+import * as permiso from '@/features/notificaciones/permiso';
 import { useBorradorOnboarding } from '@/features/onboarding/borrador';
 import { renderizar } from '@/pruebas/renderizar';
 import { reiniciarMock, USUARIO_NUEVO } from '@/services/api/mock';
@@ -23,6 +24,13 @@ jest.mock('expo-router', () => {
   };
 });
 
+// El permiso del sistema se probó aparte (notificaciones/permiso-test).
+jest.mock('@/features/notificaciones/permiso', () => ({
+  consultarPermisoNotificaciones: jest.fn(),
+  pedirPermisoNotificaciones: jest.fn(),
+}));
+const sistema = jest.mocked(permiso);
+
 /** Responde el diálogo de confirmación tocando el botón con ese texto. */
 const responderAlerta = (texto: string) =>
   jest.spyOn(Alert, 'alert').mockImplementation((_titulo, _mensaje, botones?: AlertButton[]) => {
@@ -33,6 +41,8 @@ const responderAlerta = (texto: string) =>
 beforeEach(async () => {
   jest.clearAllMocks();
   jest.restoreAllMocks();
+  sistema.consultarPermisoNotificaciones.mockResolvedValue('concedido');
+  sistema.pedirPermisoNotificaciones.mockResolvedValue('concedido');
   reiniciarMock();
   const borrador = useBorradorOnboarding.getState();
   borrador.vaciar();
@@ -117,6 +127,42 @@ describe('Solicitud enviada', () => {
     expect(screen.getByLabelText('Acceso habilitado: No habilitado')).toBeOnTheScreen();
     expect(screen.getByText(/no aprobó tu solicitud/)).toBeOnTheScreen();
     expect(screen.queryByText('Cancelar solicitud')).not.toBeOnTheScreen();
+  });
+
+  test('sin permiso de notificaciones no promete avisar: ofrece activarlos y, si lo da, ya promete', async () => {
+    sistema.consultarPermisoNotificaciones.mockResolvedValue('preguntar');
+    const user = userEvent.setup();
+    await renderizar(<Solicitud />);
+
+    expect(await screen.findByText('Activa los avisos para saber cuándo te aprueben.')).toBeOnTheScreen();
+    expect(screen.queryByText('Te avisaremos cuando te aprueben.')).not.toBeOnTheScreen();
+
+    await user.press(screen.getByRole('button', { name: 'Activar' }));
+
+    expect(sistema.pedirPermisoNotificaciones).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Te avisaremos cuando te aprueben.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Activar' })).not.toBeOnTheScreen();
+  });
+
+  test('con el permiso bloqueado ofrece abrir los Ajustes', async () => {
+    sistema.consultarPermisoNotificaciones.mockResolvedValue('bloqueado');
+    const abrirAjustes = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    const user = userEvent.setup();
+    await renderizar(<Solicitud />);
+
+    await user.press(await screen.findByRole('button', { name: 'Abrir Ajustes' }));
+
+    expect(abrirAjustes).toHaveBeenCalledTimes(1);
+    expect(sistema.pedirPermisoNotificaciones).not.toHaveBeenCalled();
+  });
+
+  test('ya aprobada no ofrece activar los avisos', async () => {
+    sistema.consultarPermisoNotificaciones.mockResolvedValue('preguntar');
+    decidirSolicitud(id(), 'aprobada');
+    await renderizar(<Solicitud />);
+
+    expect(await screen.findByText('Ya eres parte de ACCONS S.A.S.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Activar' })).not.toBeOnTheScreen();
   });
 
   test('sin solicitud en el borrador vuelve al 4/5', async () => {

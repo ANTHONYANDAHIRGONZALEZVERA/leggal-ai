@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 
 import Empresa from '@/app/(onboarding)/empresa';
 import { iniciarSesion } from '@/features/auth/api';
+import * as permiso from '@/features/notificaciones/permiso';
 import { useBorradorOnboarding } from '@/features/onboarding/borrador';
 import { renderizar } from '@/pruebas/renderizar';
 import { leerCarga } from '@/services/api/jwt';
@@ -21,9 +22,19 @@ jest.mock('expo-router', () => {
   };
 });
 
+// El permiso del sistema se probó aparte (notificaciones/permiso-test).
+jest.mock('@/features/notificaciones/permiso', () => ({
+  consultarPermisoNotificaciones: jest.fn(),
+  pedirPermisoNotificaciones: jest.fn(),
+}));
+const sistema = jest.mocked(permiso);
+
 // Llega desde el 3/5 en modo Colaborativo, con sesión real de la API simulada.
+// Por defecto ya dio el permiso de notificaciones (no se le ofrece).
 beforeEach(async () => {
   jest.clearAllMocks();
+  sistema.consultarPermisoNotificaciones.mockResolvedValue('concedido');
+  sistema.pedirPermisoNotificaciones.mockResolvedValue('concedido');
   reiniciarMock();
   const borrador = useBorradorOnboarding.getState();
   borrador.vaciar();
@@ -116,6 +127,53 @@ describe('Onboarding 4/5: unirme con código', () => {
     expect(useBorradorOnboarding.getState().solicitud).toMatchObject({ estado: 'en_espera', codigo: 'ACC-7K2' });
   });
 
+  test('sin permiso de notificaciones, al enviar ofrece los avisos de la aprobación y con Permitir lo pide', async () => {
+    sistema.consultarPermisoNotificaciones.mockResolvedValue('preguntar');
+    const user = userEvent.setup();
+    await renderizar(<Empresa />);
+    await user.type(campoCodigo(), CODIGOS_DE_PRUEBA.accons);
+    await screen.findByText('ACCONS S.A.S.');
+
+    await user.press(solicitarAcceso());
+
+    expect(await screen.findByText('Te avisamos cuando ACCONS S.A.S. apruebe tu solicitud.')).toBeOnTheScreen();
+    expect(useBorradorOnboarding.getState().solicitud?.estado).toBe('en_espera'); // ya se envió
+    expect(router.push).not.toHaveBeenCalled();
+
+    await user.press(screen.getByText('Permitir notificaciones'));
+
+    expect(sistema.pedirPermisoNotificaciones).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/solicitud'));
+  });
+
+  test('"Ahora no" no bloquea: la solicitud sigue enviada y pasa a "Solicitud enviada"', async () => {
+    sistema.consultarPermisoNotificaciones.mockResolvedValue('preguntar');
+    const user = userEvent.setup();
+    await renderizar(<Empresa />);
+    await user.type(campoCodigo(), CODIGOS_DE_PRUEBA.accons);
+    await screen.findByText('ACCONS S.A.S.');
+    await user.press(solicitarAcceso());
+
+    await user.press(await screen.findByText('Ahora no'));
+
+    expect(sistema.pedirPermisoNotificaciones).not.toHaveBeenCalled();
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/solicitud'));
+    expect(useBorradorOnboarding.getState().solicitud?.estado).toBe('en_espera');
+  });
+
+  test('si el permiso quedó bloqueado o ya lo dio, no le pregunta y pasa directo', async () => {
+    sistema.consultarPermisoNotificaciones.mockResolvedValue('bloqueado');
+    const user = userEvent.setup();
+    await renderizar(<Empresa />);
+    await user.type(campoCodigo(), CODIGOS_DE_PRUEBA.accons);
+    await screen.findByText('ACCONS S.A.S.');
+
+    await user.press(solicitarAcceso());
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/solicitud'));
+    expect(screen.queryByText('Permitir notificaciones')).not.toBeOnTheScreen();
+  });
+
   test('con un código sin aprobación (DIR-8M3) entra directo y sigue al 5/5', async () => {
     const user = userEvent.setup();
     await renderizar(<Empresa />);
@@ -126,6 +184,7 @@ describe('Onboarding 4/5: unirme con código', () => {
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith('/preferencias'));
     expect(useBorradorOnboarding.getState().solicitud).toMatchObject({ estado: 'aprobada', codigo: 'DIR-8M3' });
+    expect(sistema.consultarPermisoNotificaciones).not.toHaveBeenCalled(); // no hay nada que esperar
   });
 
   test('con una solicitud pendiente lo avisa y deja verla', async () => {
