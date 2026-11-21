@@ -35,7 +35,7 @@ export function useDisponibilidad(texto: string): EstadoUsuario {
 }
 
 // Sugerencias de @usuario según el nombre visible que se va escribiendo.
-export function useSugerencias(nombre: string): string[] {
+export function useSugerencias(nombre: string): { sugerencias: string[]; buscando: boolean } {
   const limpio = nombre.trim().replace(/\s+/g, ' ');
   const consultado = useDiferido(limpio.length >= MINIMO_NOMBRE_SUGERENCIAS ? limpio : '', ESPERA_CONSULTA_MS);
 
@@ -49,7 +49,11 @@ export function useSugerencias(nombre: string): string[] {
     placeholderData: keepPreviousData,
   });
 
-  return consultado ? (consulta.data?.sugerencias ?? []) : [];
+  const sugerencias = consultado ? (consulta.data?.sugerencias ?? []) : [];
+  // Buscando: hay nombre suficiente y todavía no llegó la respuesta para él
+  // (esperando la última tecla o la petición en curso).
+  const buscando = limpio.length >= MINIMO_NOMBRE_SUGERENCIAS && (consultado !== limpio || consulta.isFetching);
+  return { sugerencias, buscando };
 }
 
 /** El valor, pero solo cuando dejó de cambiar durante `ms`. */

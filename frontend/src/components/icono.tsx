@@ -35,7 +35,9 @@ const trazos = {
   campana: { d: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4', grosor: 2 },
   candado: { d: 'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3', grosor: 2 },
   escudo: { d: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', grosor: 2 },
-  balanza: { d:'M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0zM8 21h8', grosor: 1.8 },
+  // Balanza del diseño con los platillos en curvas (c) en vez de arcos (a): en
+  // el teléfono el trazo con arcos no se dibujaba.
+  balanza: { d: 'M12 3v18M5 7h14M7 7l-3 7c0 4 6 4 6 0zM17 7l-3 7c0 4 6 4 6 0zM8 21h8', grosor: 1.8 },
 } as const;
 
 // Logo de Google: cuatro rellenos de color en un viewBox 48×48.

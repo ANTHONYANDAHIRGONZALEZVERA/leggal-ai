@@ -14,6 +14,7 @@ import { Boton } from '@/components/boton';
 import { BotonVolver } from '@/components/boton-volver';
 import { CampoTexto } from '@/components/campo-texto';
 import { Chip } from '@/components/chip';
+import { EsqueletoChips } from '@/components/esqueleto-chips';
 import { HojaOpciones } from '@/components/hoja-opciones';
 import { Icono } from '@/components/icono';
 import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
@@ -67,7 +68,7 @@ export default function Perfil() {
   });
   const [nombre, usuario] = useWatch({ control, name: ['nombre', 'usuario'] });
   const estado = useDisponibilidad(usuario);
-  const sugerencias = useSugerencias(nombre);
+  const { sugerencias, buscando } = useSugerencias(nombre);
 
   const continuar = handleSubmit(async (datos) => {
     setErrorGeneral(undefined);
@@ -187,6 +188,8 @@ export default function Perfil() {
                 ))}
               </View>
             )}
+            {/* Mientras llegan las primeras, su lugar: así se sabe que vienen. */}
+            {sugerencias.length === 0 && buscando && <EsqueletoChips etiqueta="Buscando sugerencias de nombre de usuario" />}
           </Aparecer>
 
           <View style={{ flex: 1, minHeight: spacing.xxl }} />
