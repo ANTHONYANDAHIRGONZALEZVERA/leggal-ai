@@ -21,7 +21,7 @@ const s = (accion: string, resto: string, icono: NombreIcono, tono: { fondo: str
 
 // Las del diseño, sin datos inventados ("del caso 0142" → "de un caso").
 type Fila = { sugerencias: Sugerencia[]; duracion: number; haciaDerecha: boolean };
-const FILAS: Fila[] = [
+export const FILAS: Fila[] = [
   {
     sugerencias: [
       s('Resume', 'este contrato', 'documento', VIOLETA),
@@ -92,33 +92,46 @@ function Chip({ accion, resto, icono, fondo, color }: Sugerencia) {
 
 /**
  * Una fila que se desliza sin fin: la lista va dos veces seguidas y se mueve
- * justo el ancho de una; al terminar el ciclo la segunda copia está donde
- * empezó la primera y no se nota el salto. Solo translateX, en el hilo de UI.
+ * justo el ancho de una copia; al terminar el ciclo la segunda copia está donde
+ * empezó la primera y no se nota el salto. Se mide la copia (no la fila): la
+ * fila toma el ancho de la pantalla y con eso apenas se movería. Solo
+ * translateX, en el hilo de UI.
  */
-function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha }: Fila) {
-  const [anchoUnaVez, setAnchoUnaVez] = useState(0);
+export function deslizamiento(anchoCopia: number, { duracion, haciaDerecha }: Pick<Fila, 'duracion' | 'haciaDerecha'>) {
+  if (anchoCopia <= 0) return null;
   const deslizar: CSSAnimationKeyframes = {
     from: { transform: [{ translateX: 0 }] },
-    to: { transform: [{ translateX: -anchoUnaVez }] },
+    to: { transform: [{ translateX: -anchoCopia }] },
   };
+  return {
+    animationName: deslizar,
+    animationDuration: duracion,
+    animationIterationCount: 'infinite',
+    animationTimingFunction: 'linear',
+    // Hacia la derecha: el mismo recorrido, al revés.
+    animationDirection: haciaDerecha ? 'reverse' : 'normal',
+  } as const;
+}
+
+function FilaEnMovimiento(fila: Fila) {
+  const { sugerencias } = fila;
+  const [anchoCopia, setAnchoCopia] = useState(0);
+  const copia = (medir: boolean) => (
+    <View
+      onLayout={medir ? (e) => setAnchoCopia(e.nativeEvent.layout.width) : undefined}
+      style={{ flexDirection: 'row', gap: SEPARACION, paddingRight: SEPARACION }}>
+      {sugerencias.map((sugerencia) => (
+        <Chip key={sugerencia.accion} {...sugerencia} />
+      ))}
+    </View>
+  );
 
   return (
     <View style={{ overflow: 'hidden' }}>
       <Animated.View
-        onLayout={(e) => setAnchoUnaVez(e.nativeEvent.layout.width / 2)}
-        style={[
-          { flexDirection: 'row', alignSelf: 'flex-start', gap: SEPARACION, paddingRight: SEPARACION },
-          anchoUnaVez > 0 && {
-            animationName: deslizar,
-            animationDuration: duracion,
-            animationIterationCount: 'infinite',
-            animationTimingFunction: 'linear',
-            animationDirection: haciaDerecha ? 'reverse' : 'normal',
-          },
-        ]}>
-        {[...sugerencias, ...sugerencias].map((sugerencia, i) => (
-          <Chip key={`${sugerencia.accion}-${i}`} {...sugerencia} />
-        ))}
+        style={[{ flexDirection: 'row', alignSelf: 'flex-start' }, deslizamiento(anchoCopia, fila)]}>
+        {copia(true)}
+        {copia(false)}
       </Animated.View>
     </View>
   );

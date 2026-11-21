@@ -12,7 +12,7 @@ import { reiniciarMock, USUARIO_DEMO, USUARIO_NUEVO } from '@/services/api/mock'
 import { CODIGOS_DE_PRUEBA } from '@/services/api/mock-empresas';
 import { useSesion } from '@/services/sesion';
 
-import { DESCRIPCION_SUGERENCIAS } from '../sugerencias-asistente';
+import { deslizamiento, DESCRIPCION_SUGERENCIAS, FILAS } from '../sugerencias-asistente';
 
 jest.mock('@/components/icono', () => ({ Icono: () => null }));
 jest.mock('@/components/esfera', () => ({ Esfera: () => null }));
@@ -157,5 +157,31 @@ describe('Inicio', () => {
     expect(screen.getByLabelText('Pregunta sobre tus casos. El asistente estará disponible pronto.')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: /Resume este contrato/ })).not.toBeOnTheScreen();
     expect(screen.queryByText('Continuar chat')).not.toBeOnTheScreen(); // no hay chats reales que continuar
+  });
+});
+
+// Movimiento de las sugerencias (Reanimated no expone la animación en Jest:
+// se prueba el cálculo que usa cada fila).
+describe('Sugerencias del asistente en movimiento', () => {
+  test('la 1 y la 3 van hacia la derecha; la 2, hacia la izquierda; las tres sin fin y a ritmo parejo', () => {
+    expect(FILAS.map((f) => f.haciaDerecha)).toEqual([true, false, true]);
+    for (const fila of FILAS) {
+      expect(deslizamiento(700, fila)).toMatchObject({
+        animationIterationCount: 'infinite',
+        animationTimingFunction: 'linear',
+        animationDirection: fila.haciaDerecha ? 'reverse' : 'normal',
+      });
+    }
+  });
+
+  test('recorre exactamente el ancho de una copia: el bucle no tiene salto', () => {
+    expect(deslizamiento(760, FILAS[0])?.animationName).toEqual({
+      from: { transform: [{ translateX: 0 }] },
+      to: { transform: [{ translateX: -760 }] },
+    });
+  });
+
+  test('sin medir todavía la copia, no se mueve', () => {
+    expect(deslizamiento(0, FILAS[1])).toBeNull();
   });
 });

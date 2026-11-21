@@ -45,7 +45,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (379)
+## Pruebas actuales (382)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -485,7 +485,7 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Otros símbolos | No se admiten ("-", "!") |
 | Símbolos seguidos o al final | No se admiten |
 
-### Inicio: `src/features/inicio/__tests__/inicio-test.tsx` (12)
+### Inicio: `src/features/inicio/__tests__/inicio-test.tsx` (15)
 Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión real.
 | Prueba | Qué asegura |
 |---|---|
@@ -499,6 +499,7 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
 | El aviso se va solo | A los 2,2 s desaparece |
 | Avatar | Lleva a Más |
 | Asistente | Se ve (sugerencias y caja) pero no se puede tocar; sin "Continuar chat" (no hay chats reales) |
+| Sugerencias en movimiento (3) | La 1 y la 3 hacia la derecha y la 2 hacia la izquierda, sin fin y lineal; recorren el ancho exacto de una copia (sin salto); sin medir no se mueven. Reanimated no expone la animación en Jest: se prueba `deslizamiento`. Que en el teléfono se mueva a la velocidad del diseño se revisa a mano |
 
 ### Espacio activo: `src/features/inicio/__tests__/espacio-test.ts` (5)
 | Prueba | Qué asegura |
@@ -570,6 +571,8 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
   "Ahora no" que deja a la persona trabada (1), preguntar con acceso inmediato
   (1), prometer avisos sin permiso (2) y ofrecerlos con la solicitud aprobada
   (1). Luego se restauró.
+- 21 nov 2026 (sugerencias del Inicio): recorrer media copia (falló 1) y
+  todas hacia el mismo lado (1). Luego se restauró.
 - 21 nov 2026 (Inicio): contar una solicitud pendiente como espacio activo
   (falló 1), decir siempre "para tu despacho" (1), avatar sin destino (1),
   `/auth/me` sin empresas (12) y un aviso que no se va (1). Luego se restauró.
