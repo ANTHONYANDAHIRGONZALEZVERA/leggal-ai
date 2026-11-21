@@ -69,9 +69,12 @@ Quitados en F04 (solo los usaba el ejemplo de la plantilla): expo-device, expo-g
 | 2026-11-20 | @nestjs/core | 12.5.0 | Núcleo de NestJS (inyección de dependencias y arranque) | Dependabot (#24) |
 | 2026-11-20 | @nestjs/platform-express | 12.5.0 | Servidor HTTP de NestJS sobre Express | Dependabot (#24) |
 | 2026-11-17 | @nestjs/swagger | 12.1.2 | Documentación interactiva de la API en `/docs`, solo en desarrollo (B04) | Joel |
+| 2026-11-20 | @prisma/adapter-pg | 7.10.1 | Conectar Prisma 7 a PostgreSQL mediante pg; misma versión que Prisma (B05 infraestructura) | Joel |
 | 2026-11-08 | @prisma/client | 7.10.1 | Cliente de Prisma para consultar PostgreSQL | Tony |
+| 2026-11-20 | pg | 8.23.1 | Controlador de PostgreSQL que usa el adaptador de Prisma (B05 infraestructura) | Joel |
 | 2026-11-08 | reflect-metadata | 0.2.2 | Metadatos de decoradores; lo exige NestJS | Tony |
 | 2026-11-08 | rxjs | 7.8.2 | Flujos reactivos; lo exige NestJS (interceptores y guards) | Tony |
+| 2026-11-20 | zod | 4.6.7 | Validar el cuerpo de las peticiones y las variables de entorno; misma versión que el frontend (B05 infraestructura) | Joel |
 
 Solo para desarrollo (`devDependencies`, no van al servidor en producción):
 | Fecha | Paquete | Versión | Para qué | Quién |
