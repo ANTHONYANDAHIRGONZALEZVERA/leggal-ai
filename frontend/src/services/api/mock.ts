@@ -3,6 +3,7 @@ import { quitarAcentos } from '@/utils/texto';
 import type { RespuestaTransporte, Transporte } from './cliente';
 import { RUTAS_AUTH, type UsuarioApi } from './contrato';
 import { leerCarga, leerVencimiento } from './jwt';
+import { crearRutasEmpresas, reiniciarEmpresas } from './mock-empresas';
 
 // API simulada (F11): responde dentro de la app como el backend según su
 // contrato (B03, docs/api/auth.md), para avanzar sin servidor. Se activa con
@@ -30,7 +31,7 @@ export const VIDA_TOKEN_MS = 15 * 60 * 1000;
 
 let usuarios = new Map<string, UsuarioSimulado>();
 /** Sesión (sid) → dueño y si ya se cerró. */
-let sesiones = new Map<string, { usuarioId: string; revocada: boolean }>();
+let sesiones = new Map<string, { usuarioId: string; revocada: boolean; tid?: string }>();
 /** Token de refresco → su sesión y si ya se usó (rota en cada uso). */
 let refrescos = new Map<string, { sid: string; usado: boolean }>();
 let contador = 0;
@@ -75,6 +76,7 @@ export function reiniciarMock() {
   reinicios += 1;
   arranque = `${Date.now().toString(36)}${reinicios}`;
   usuariosTomados = new Set(USUARIOS_TOMADOS);
+  reiniciarEmpresas();
 }
 reiniciarMock();
 
@@ -100,11 +102,11 @@ const texto = (valor: unknown) => (typeof valor === 'string' ? valor : '');
 
 // Token con forma de JWT (cabecera.carga.firma) y la carga del contrato: sub,
 // tid, sid, iat y exp. La firma es de mentira.
-function tokenDeAcceso(usuarioId: string, sid: string) {
+function tokenDeAcceso(usuarioId: string, sid: string, tid: string | null) {
   const base64url = (datos: object) =>
     btoa(JSON.stringify(datos)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
   const iat = Math.floor(Date.now() / 1000);
-  const carga = { sub: usuarioId, tid: null, sid, iat, exp: iat + VIDA_TOKEN_MS / 1000, n: contador };
+  const carga = { sub: usuarioId, tid, sid, iat, exp: iat + VIDA_TOKEN_MS / 1000, n: contador };
   return `${base64url({ alg: 'none', typ: 'JWT' })}.${base64url(carga)}.simulada`;
 }
 
@@ -119,16 +121,17 @@ function respuestaSesion(usuario: UsuarioSimulado, sid: string) {
   const tokenRefresco = `mock-refresco.${arranque}.${usuario.id}.${contador}`;
   refrescos.set(tokenRefresco, { sid, usado: false });
   return {
-    tokenAcceso: tokenDeAcceso(usuario.id, sid),
+    tokenAcceso: tokenDeAcceso(usuario.id, sid, sesiones.get(sid)?.tid ?? null),
     tokenRefresco,
     venceEn: VIDA_TOKEN_MS / 1000,
     usuario: publico(usuario),
   };
 }
 
-function abrirSesion(usuario: UsuarioSimulado) {
+/** Sesión nueva; con `tid`, su token ya está dentro de esa empresa. */
+function abrirSesion(usuario: UsuarioSimulado, tid?: string) {
   const sid = `ses-${sesiones.size + 1}`;
-  sesiones.set(sid, { usuarioId: usuario.id, revocada: false });
+  sesiones.set(sid, { usuarioId: usuario.id, revocada: false, tid });
   return respuestaSesion(usuario, sid);
 }
 
@@ -188,6 +191,11 @@ type Manejador = (cuerpo: Cuerpo, cabeceras: Record<string, string>) => Respuest
 type ManejadorPrivado = (cuerpo: Cuerpo, persona: UsuarioSimulado) => RespuestaTransporte;
 
 const rutasPrivadas: Record<string, ManejadorPrivado> = {
+  ...crearRutasEmpresas({
+    responder,
+    fallar,
+    sesionEnEmpresa: (persona, empresaId) => abrirSesion(persona as UsuarioSimulado, empresaId),
+  }),
   [`GET ${RUTAS_AUTH.yo}`]: (_cuerpo, persona) =>
     responder(200, { usuario: publico(persona), empresaActivaId: null, empresas: [] }),
   'GET /usuarios/disponible': ({ usuario }) =>
@@ -263,7 +271,13 @@ export const transporteSimulado: Transporte = async (url, { method, headers, bod
   // Se quita el dominio (si lo hay); la consulta (?a=1) se suma al cuerpo.
   const [ruta, consulta = ''] = url.replace(/^https?:\/\/[^/]+/, '').split('?');
   const cuerpo: Cuerpo = { ...leerConsulta(consulta), ...(body ? (JSON.parse(body) as Cuerpo) : {}) };
-  const clave = `${method} ${ruta}`;
+  let clave = `${method} ${ruta}`;
+  // Rutas con un id al final (DELETE /join-requests/me/sol-1): el id va al cuerpo.
+  const conId = clave.match(/^(.*\/)([^/]+)$/);
+  if (!rutasPrivadas[clave] && !rutas[clave] && conId && rutasPrivadas[`${conId[1]}:id`]) {
+    clave = `${conId[1]}:id`;
+    cuerpo.id = decodeURIComponent(conId[2]);
+  }
 
   const privada = rutasPrivadas[clave];
   if (privada) {
