@@ -77,6 +77,38 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
     expect(screen.getByText('@brunodiaz')).toBeOnTheScreen();
   });
 
+  test('mientras llegan las sugerencias muestra su lugar (carga esqueleto) y luego las cambia por ellas', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), 'Bruno Díaz');
+
+    expect(screen.getByLabelText('Buscando sugerencias de nombre de usuario')).toBeOnTheScreen();
+    expect(await screen.findByText('@bruno.diaz')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+  });
+
+  test('si el servidor no tiene sugerencias, la carga se quita y no queda nada', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), '12'); // sin letras: no hay con qué armar @usuarios
+    expect(screen.getByLabelText('Buscando sugerencias de nombre de usuario')).toBeOnTheScreen();
+
+    await waitFor(() => expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen());
+    expect(screen.queryByLabelText('Sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+  });
+
+  test('con una sola letra no sugiere ni muestra la carga', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), 'B');
+
+    expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+  });
+
   test('las sugerencias cambian si cambia el nombre', async () => {
     const user = userEvent.setup();
     await renderizar(<Perfil />);

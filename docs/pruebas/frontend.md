@@ -45,7 +45,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (341)
+## Pruebas actuales (344)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -272,13 +272,14 @@ Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 | Sin campos | Se devuelve como aviso general (por ejemplo, sin conexión) |
 | Error inesperado | Mensaje genérico |
 
-### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (21)
+### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (24)
 Pantalla "¿Cómo te llamamos?" (F30) contra la API simulada, con la cuenta de
 prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Prueba | Qué asegura |
 |---|---|
 | Inicio | Los dos campos empiezan vacíos y sin sugerencias |
 | Sugerencias | Al escribir "Bruno Díaz" aparecen @bruno.diaz, @bdiaz.legal y @brunodiaz |
+| Carga esqueleto (3) | Mientras llegan las sugerencias se ve su lugar y luego se cambia por ellas; si el servidor no tiene, se quita; con una letra no aparece |
 | Cambio de nombre | Las sugerencias se rehacen con el nombre nuevo |
 | Tomados | No sugiere @andrea.ruiz porque está tomado |
 | Tocar sugerencia | Llena el @usuario y queda "Disponible" |
@@ -527,6 +528,10 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 - 21 nov 2026 (cédula, códigos simulados y error del permiso): aceptar
   cualquier cédula (fallaron 2), no aprobar sola la solicitud de `LEX-4P9` (1)
   y no atrapar la falla del permiso (2). Luego se restauró.
+- 21 nov 2026 (carga esqueleto del 1/5): no mostrarla (falló 1), mostrarla con
+  una letra (1) y que nunca se quite (1; al principio no fallaba ninguna, por
+  eso se agregó la prueba "si el servidor no tiene sugerencias"). Luego se
+  restauró.
 
 ## Pendiente
 - Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la
