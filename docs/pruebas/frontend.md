@@ -45,7 +45,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (350)
+## Pruebas actuales (353)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -122,7 +122,7 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Reintento | El aviso desaparece al volver a intentar con la cuenta correcta |
 | Crear cuenta | El enlace lleva a `/registro` |
 
-### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (12)
+### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (14)
 `app/_layout.tsx` y `app/index.tsx` reales (F10) con el enrutador de Expo Router
 (`renderRouter`); las pantallas son textos con su nombre.
 | Prueba | Qué asegura |
@@ -132,7 +132,9 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Onboarding pendiente | Abre en el paso 1/5 |
 | Iniciar sesión | Desde el Login lleva sola a Inicio |
 | Cuenta nueva | Va al onboarding y, al terminarlo, a Inicio |
-| Cerrar sesión | Vuelve al Splash |
+| Cerrar sesión | Va a "Bienvenido de nuevo", no al Splash |
+| Splash una sola vez | Se ve al abrir sin sesión y no otra vez al salir |
+| Salir del 1/5 | Va a "Bienvenido de nuevo", no al Splash |
 | Enlace directo sin sesión | `/inicio` no deja entrar |
 | Login con sesión | El Login ya no está disponible |
 | Refresh al abrir | Con sesión guardada pregunta una vez al servidor antes de mostrar la app |
@@ -272,7 +274,7 @@ Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 | Sin campos | Se devuelve como aviso general (por ejemplo, sin conexión) |
 | Error inesperado | Mensaje genérico |
 
-### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (24)
+### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (25)
 Pantalla "¿Cómo te llamamos?" (F30) contra la API simulada, con la cuenta de
 prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Prueba | Qué asegura |
@@ -291,6 +293,7 @@ prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Formato inválido | Muestra la regla ("No uses dos símbolos seguidos") y no avanza |
 | Volver desde 2/5 | Encuentra lo que ya había llenado |
 | Flecha del paso 1 | Cierra la sesión (volver = salir de la cuenta nueva) |
+| Atrás del teléfono | Hace lo mismo que la flecha y no deja que el sistema cierre la app |
 | Foto: opciones | El botón de cámara abre "Tomar foto" y "Elegir de la galería"; sin foto no ofrece quitarla |
 | Foto: galería | La foto preparada reemplaza las iniciales, la hoja se cierra y queda en el borrador |
 | Foto: no permitida | Un GIF avisa debajo del avatar y no se usa |
@@ -538,6 +541,9 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
   "Ahora no" que deja a la persona trabada (1), preguntar con acceso inmediato
   (1), prometer avisos sin permiso (2) y ofrecerlos con la solicitud aprobada
   (1). Luego se restauró.
+- 21 nov 2026 (salir sin pasar por el Splash): volver siempre al Splash
+  (fallaron 3), dar la app por abierta sin haber entrado (1) y que el atrás del
+  teléfono no saliera (1). Luego se restauró.
 - 21 nov 2026 (carga esqueleto del 1/5): no mostrarla (falló 1), mostrarla con
   una letra (1) y que nunca se quite (1; al principio no fallaba ninguna, por
   eso se agregó la prueba "si el servidor no tiene sugerencias"). Luego se
