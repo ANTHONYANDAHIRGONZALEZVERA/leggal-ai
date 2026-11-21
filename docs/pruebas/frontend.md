@@ -40,10 +40,12 @@ workflow deja un comentario con el error.
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | `@expo/ui` | Dibuja vistas nativas (SwiftUI / Compose) que en Jest quedan como cajas vacías sin texto. `jest.setup.ts` lo reemplaza: la hoja muestra su contenido solo si está abierta y los botones se pueden tocar. |
+| `Alert.alert` | El diálogo nativo no existe en Jest: las pruebas lo espían y "tocan" el botón que corresponde (por ejemplo, "Sí, cancelar"). |
+| `expo-notifications` y el permiso del 5/5 | El aviso del sistema no existe en Jest. `permiso-test` reemplaza el módulo; la pantalla reemplaza `features/notificaciones/permiso` (ya probado aparte). El `Switch` se mueve con `fireEvent(…, 'valueChange')`: con un toque simulado no cambia y la prueba pasaría sin probar nada. |
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (225)
+## Pruebas actuales (353)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -120,7 +122,7 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Reintento | El aviso desaparece al volver a intentar con la cuenta correcta |
 | Crear cuenta | El enlace lleva a `/registro` |
 
-### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (12)
+### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (14)
 `app/_layout.tsx` y `app/index.tsx` reales (F10) con el enrutador de Expo Router
 (`renderRouter`); las pantallas son textos con su nombre.
 | Prueba | Qué asegura |
@@ -130,7 +132,9 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Onboarding pendiente | Abre en el paso 1/5 |
 | Iniciar sesión | Desde el Login lleva sola a Inicio |
 | Cuenta nueva | Va al onboarding y, al terminarlo, a Inicio |
-| Cerrar sesión | Vuelve al Splash |
+| Cerrar sesión | Va a "Bienvenido de nuevo", no al Splash |
+| Splash una sola vez | Se ve al abrir sin sesión y no otra vez al salir |
+| Salir del 1/5 | Va a "Bienvenido de nuevo", no al Splash |
 | Enlace directo sin sesión | `/inicio` no deja entrar |
 | Login con sesión | El Login ya no está disponible |
 | Refresh al abrir | Con sesión guardada pregunta una vez al servidor antes de mostrar la app |
@@ -270,13 +274,14 @@ Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 | Sin campos | Se devuelve como aviso general (por ejemplo, sin conexión) |
 | Error inesperado | Mensaje genérico |
 
-### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (21)
+### Onboarding 1/5: `src/features/onboarding/__tests__/perfil-test.tsx` (25)
 Pantalla "¿Cómo te llamamos?" (F30) contra la API simulada, con la cuenta de
 prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Prueba | Qué asegura |
 |---|---|
 | Inicio | Los dos campos empiezan vacíos y sin sugerencias |
 | Sugerencias | Al escribir "Bruno Díaz" aparecen @bruno.diaz, @bdiaz.legal y @brunodiaz |
+| Carga esqueleto (3) | Mientras llegan las sugerencias se ve su lugar y luego se cambia por ellas; si el servidor no tiene, se quita; con una letra no aparece |
 | Cambio de nombre | Las sugerencias se rehacen con el nombre nuevo |
 | Tomados | No sugiere @andrea.ruiz porque está tomado |
 | Tocar sugerencia | Llena el @usuario y queda "Disponible" |
@@ -288,6 +293,7 @@ prueba `nuevo@leggal.ai`. El avatar (Skia) se reemplaza por sus iniciales.
 | Formato inválido | Muestra la regla ("No uses dos símbolos seguidos") y no avanza |
 | Volver desde 2/5 | Encuentra lo que ya había llenado |
 | Flecha del paso 1 | Cierra la sesión (volver = salir de la cuenta nueva) |
+| Atrás del teléfono | Hace lo mismo que la flecha y no deja que el sistema cierre la app |
 | Foto: opciones | El botón de cámara abre "Tomar foto" y "Elegir de la galería"; sin foto no ofrece quitarla |
 | Foto: galería | La foto preparada reemplaza las iniciales, la hoja se cierra y queda en el borrador |
 | Foto: no permitida | Un GIF avisa debajo del avatar y no se usa |
@@ -340,6 +346,114 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 | Sin el 2/5 | Vuelve al 2/5 |
 | Flecha | Vuelve al paso 2/5 |
 
+### Onboarding 5/5: `src/features/onboarding/__tests__/preferencias-test.tsx` (18)
+Pantalla "¿Para qué usarás Leggal AI?" (F31) y `esquemaPreferencias`.
+| Prueba | Qué asegura |
+|---|---|
+| Al abrir | Sin usos, canal "Ambos" y notificaciones apagadas |
+| Elegir | Varios usos; un solo canal |
+| Sin usos | No empieza y pide "Elige al menos un uso" |
+| Permiso ya dado | El interruptor se enciende sin preguntar |
+| Sin permiso | Primero la explicación; si lo da, se enciende |
+| Ahora no | Cierra la explicación y queda apagado |
+| Lo niega | Queda apagado |
+| Bloqueado | Ofrece abrir los Ajustes y no lo enciende |
+| Falla del sistema (2) | Si consultar o pedir el permiso falla, lo explica, cierra la explicación y queda apagado; el onboarding sigue |
+| Apagar | No pregunta por el permiso |
+| Empezar | Envía todo y el onboarding queda hecho |
+| Envío falla | Lo avisa y no pierde lo elegido |
+| Salir hacia atrás | Guarda lo elegido |
+| Pasos anteriores (2) | Sin el 1/5 vuelve al 1/5; Colaborativo sin empresa ni solicitud vuelve al 4/5 |
+| Usos | Sin repetir y en el orden de la lista; rechaza usos o canales inventados |
+
+### Envío del onboarding: `src/features/onboarding/__tests__/envio-test.ts` (10)
+`enviarOnboarding` y `necesitaEspacioPersonal` (F31, B34 y B35), contra la API simulada.
+| Prueba | Qué asegura |
+|---|---|
+| ¿Espacio personal? (4) | Sí en Personal y en Colaborativo esperando aprobación; no si creó empresa o ya lo aprobaron |
+| Personal | Crea el espacio personal, envía todo, deja el onboarding completo y vacía el borrador |
+| Colaborativo pendiente | También recibe su espacio personal |
+| Colaborativo con empresa | No recibe espacio personal |
+| @usuario tomado | Falla con su mensaje y no pierde el borrador |
+| Reintento | No crea un segundo espacio personal |
+| Sin pasos | No envía nada |
+
+### Permiso de notificaciones: `src/features/notificaciones/__tests__/permiso-test.ts` (6)
+| Prueba | Qué asegura |
+|---|---|
+| Estados (4) | Dado o provisional de iOS → concedido; negado → preguntar; negado para siempre → bloqueado |
+| Android | Crea el canal "avisos" antes de pedir el permiso (Android 13+ lo necesita) |
+| iOS | No crea canales y pide alertas, globo y sonido |
+
+### Onboarding 4/5: `src/features/empresas/__tests__/empresa-test.tsx` (21)
+Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión real.
+| Prueba | Qué asegura |
+|---|---|
+| Al abrir | Pestaña "Unirme con código"; sin QR, enlace ni aviso de dominio (fuera del plan); Solicitar desactivado |
+| Código completo | Con 6 caracteres muestra empresa, verificada, rol y "Requiere aprobación" |
+| Pegar | " acc-7k2 " queda ACC7K2 y busca la empresa |
+| Código inexistente | Lo avisa y no deja solicitar |
+| Código vencido | Pide uno nuevo |
+| Borrar un carácter | La empresa desaparece y vuelve a pedir el código completo |
+| Solicitar acceso | Envía la solicitud, la guarda y pasa a "Solicitud enviada" |
+| Acceso inmediato | Con `DIR-8M3` muestra "Inmediato", queda aprobada y sigue al 5/5 sin preguntar por avisos |
+| Ofrecer avisos | Sin permiso, después de enviar ofrece los avisos de la aprobación; con Permitir lo pide y sigue |
+| Ahora no | No bloquea: la solicitud sigue enviada y pasa a "Solicitud enviada" |
+| Bloqueado o ya dado | No pregunta y pasa directo |
+| Solicitud pendiente | Lo avisa y deja verla |
+| Pedir otra vez | Avisa que ya hay una solicitud |
+| Pestaña Crear | Razón social, RUC, tamaño y el aviso de administrador |
+| Crear vacío | Pide cada dato |
+| RUC | Solo dígitos, hasta 13 |
+| Crear empresa | La crea, guarda la sesión cuyo token trae la empresa y pasa al 5/5 |
+| RUC registrado | Se avisa debajo del campo |
+| Ya creada | Al volver no la crea otra vez: solo deja continuar |
+| Pasos anteriores (2) | Sin el 1/5 vuelve al 1/5; en modo Personal vuelve al 3/5 |
+
+### Solicitud enviada: `src/features/empresas/__tests__/solicitud-test.tsx` (10)
+| Prueba | Qué asegura |
+|---|---|
+| Datos | Empresa, rol y la línea de estado (código validado, revisión en curso, acceso pendiente) |
+| Modo personal | Sigue al 5/5 y la solicitud queda pendiente |
+| Sin avisos | No dice "Te avisaremos": ofrece Activar y, si lo da, ya lo dice |
+| Avisos bloqueados | Ofrece Abrir Ajustes |
+| Aprobada | No ofrece activar avisos |
+| Cancelar: No | Pide confirmación y con "No" no cancela |
+| Cancelar: Sí | La cancela en el servidor, la borra del borrador y vuelve al 4/5; luego se puede volver a pedir |
+| Aprobada | Lo muestra, ya no ofrece cancelar y deja continuar |
+| Rechazada | Lo muestra y ya no ofrece cancelar |
+| Sin solicitud | Vuelve al 4/5 |
+
+### Reglas de empresas: `src/features/empresas/__tests__/esquemas-test.ts` (33)
+| Prueba | Qué asegura |
+|---|---|
+| Código (6) | Mayúsculas, sin guion ni espacios, máximo 6; con guion como lo genera el backend |
+| RUC válidos (5) | Sociedad privada, persona natural, pública, otro establecimiento y exterior (30) |
+| RUC inválidos (9) | Menos de 13, letras, provincia 00 o 25, tercer dígito 7 u 8, termina en 000, persona natural con cédula inválida |
+| Cédula (7) | Acepta cédulas reales del módulo 10; rechaza verificador cambiado, 9 dígitos o letras; a las sociedades no se les aplica |
+| Empresa (6) | Acepta datos completos; rechaza sin razón social, solo símbolos, RUC inválido o tamaño faltante o inventado |
+
+### API simulada de empresas: `src/services/api/__tests__/mock-empresas-test.ts` (21)
+Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
+| Prueba | Qué asegura |
+|---|---|
+| Vista previa | Empresa, rol y aprobación sin canjear; acepta minúsculas o sin guion |
+| Errores del código | 404 `CODIGO_INVALIDO`, 410 `CODIGO_VENCIDO` y sin sesión 401 |
+| Límite | Después de 5 intentos en la hora, 429 `DEMASIADOS_INTENTOS` |
+| Canjear | Crea la solicitud en espera con el código con guion y sin datos internos |
+| Duplicada | 409 `SOLICITUD_EXISTENTE` |
+| Acceso inmediato | `DIR-8M3` crea la solicitud ya aprobada |
+| Aprobación simulada | `LEX-4P9` se aprueba sola a los 40 s y no antes; `ACC-7K2` nunca sola |
+| Mis solicitudes | Devuelve las de la persona con su estado al día |
+| Cancelar | Queda cancelada, es idempotente, 404 si no existe, y se puede volver a pedir |
+| Crear empresa | Sesión nueva cuyo token trae el `tid` de la empresa |
+| RUC en uso | 409 `RUC_EN_USO` |
+| Validación | 400 `VALIDACION` señalando cada campo |
+| Espacio personal | `tipo: personal` crea una empresa de un miembro; la segunda vez devuelve la misma (idempotente) |
+| Envío del onboarding | Guarda los datos, deja el onboarding completo y toma el @usuario |
+| @usuario tomado | 409 `USUARIO_EN_USO` |
+| Onboarding incompleto | 400 `VALIDACION` señalando cada campo |
+
 ### Foto de perfil: `src/features/onboarding/__tests__/foto-test.ts` (17)
 `revisarFoto`, `elegirFoto` y el permiso de cámara (onboarding 1/5).
 | Prueba | Qué asegura |
@@ -367,8 +481,8 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 | Otros símbolos | No se admiten ("-", "!") |
 | Símbolos seguidos o al final | No se admiten |
 
-### Texto: `src/utils/__tests__/texto-test.ts` (6)
-`quitarAcentos` e `iniciales` (F30).
+### Texto: `src/utils/__tests__/texto-test.ts` (9)
+`quitarAcentos`, `iniciales` (F30) y `conPunto` (F33).
 | Prueba | Qué asegura |
 |---|---|
 | Quitar acentos | Tildes, diéresis y ñ |
@@ -377,6 +491,7 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 | Un nombre | Una letra |
 | Espacios de más | Se ignoran y sale en mayúsculas |
 | Vacío | Devuelve vacío |
+| Cerrar con punto (3) | Agrega el punto final sin duplicarlo ("ACCONS S.A.S." no queda "S.A.S..") ni tras "?" |
 
 ## Comprobación de que las pruebas sirven
 - 15 nov 2026 (F13): se quitó a propósito la regla de la casilla obligatoria y
@@ -411,6 +526,28 @@ Pantalla "¿Cómo vas a trabajar?" (F31).
 - 21 nov 2026 (onboarding 3/5): Personal dejó de saltarse el 4/5, se quitó la
   vuelta al 2/5 y se dejó de guardar al salir (falló 1 prueba cada vez); se
   dejó Colaborativo elegido de entrada y fallaron 3. Luego se restauró.
+- 21 nov 2026 (onboarding 4/5 y Solicitud enviada): Solicitar acceso activo sin
+  vista previa (fallaron 3), sin limpiar lo pegado (7), sin guardar la sesión
+  con la empresa (1), sin la vuelta al 3/5 en modo Personal (1), cancelar sin
+  confirmar (1) e ignorar el estado del servidor (2). Luego se restauró.
+- 21 nov 2026 (onboarding 5/5): encender sin revisar el permiso (fallaron 4),
+  nunca crear el espacio personal (2), usos opcionales (1), no crear el canal
+  de Android antes del permiso (1) y espacio personal no idempotente (1).
+  Luego se restauró.
+- 21 nov 2026 (cédula, códigos simulados y error del permiso): aceptar
+  cualquier cédula (fallaron 2), no aprobar sola la solicitud de `LEX-4P9` (1)
+  y no atrapar la falla del permiso (2). Luego se restauró.
+- 21 nov 2026 (avisos al unirse): nunca ofrecer los avisos (fallaron 2),
+  "Ahora no" que deja a la persona trabada (1), preguntar con acceso inmediato
+  (1), prometer avisos sin permiso (2) y ofrecerlos con la solicitud aprobada
+  (1). Luego se restauró.
+- 21 nov 2026 (salir sin pasar por el Splash): volver siempre al Splash
+  (fallaron 3), dar la app por abierta sin haber entrado (1) y que el atrás del
+  teléfono no saliera (1). Luego se restauró.
+- 21 nov 2026 (carga esqueleto del 1/5): no mostrarla (falló 1), mostrarla con
+  una letra (1) y que nunca se quite (1; al principio no fallaba ninguna, por
+  eso se agregó la prueba "si el servidor no tiene sugerencias"). Luego se
+  restauró.
 
 ## Pendiente
 - Jest no se cierra solo al terminar (algo queda abierto; ya pasaba antes de la

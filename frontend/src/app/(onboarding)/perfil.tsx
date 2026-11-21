@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Modal, ScrollView, View, type TextInputInstance } from 'react-native';
+import { BackHandler, Modal, ScrollView, View, type TextInputInstance } from 'react-native';
 
 import { Aparecer } from '@/components/aparecer';
 import { AvatarEsfera } from '@/components/avatar-esfera';
@@ -14,6 +14,7 @@ import { Boton } from '@/components/boton';
 import { BotonVolver } from '@/components/boton-volver';
 import { CampoTexto } from '@/components/campo-texto';
 import { Chip } from '@/components/chip';
+import { EsqueletoChips } from '@/components/esqueleto-chips';
 import { HojaOpciones } from '@/components/hoja-opciones';
 import { Icono } from '@/components/icono';
 import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
@@ -67,7 +68,7 @@ export default function Perfil() {
   });
   const [nombre, usuario] = useWatch({ control, name: ['nombre', 'usuario'] });
   const estado = useDisponibilidad(usuario);
-  const sugerencias = useSugerencias(nombre);
+  const { sugerencias, buscando } = useSugerencias(nombre);
 
   const continuar = handleSubmit(async (datos) => {
     setErrorGeneral(undefined);
@@ -92,6 +93,18 @@ export default function Perfil() {
   });
 
   const aviso = errors.usuario ? undefined : avisoUsuario[estado];
+
+  // El "atrás" del teléfono hace lo mismo que la flecha: salir al inicio de
+  // sesión. Solo mientras esta pantalla está al frente (no desde el 2/5).
+  useFocusEffect(
+    useCallback(() => {
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        void cerrarSesion();
+        return true;
+      });
+      return () => suscripcion.remove();
+    }, []),
+  );
 
   return (
     <PantallaConEsfera>
@@ -187,6 +200,8 @@ export default function Perfil() {
                 ))}
               </View>
             )}
+            {/* Mientras llegan las primeras, su lugar: así se sabe que vienen. */}
+            {sugerencias.length === 0 && buscando && <EsqueletoChips etiqueta="Buscando sugerencias de nombre de usuario" />}
           </Aparecer>
 
           <View style={{ flex: 1, minHeight: spacing.xxl }} />

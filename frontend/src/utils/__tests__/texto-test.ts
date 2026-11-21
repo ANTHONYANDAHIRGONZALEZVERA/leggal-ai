@@ -1,4 +1,4 @@
-import { iniciales, quitarAcentos } from '../texto';
+import { conPunto, iniciales, quitarAcentos } from '../texto';
 
 // Utilidades de texto compartidas (F30).
 describe('quitarAcentos', () => {
@@ -27,5 +27,15 @@ describe('iniciales', () => {
 
   test('sin nombre devuelve vacío', () => {
     expect(iniciales('   ')).toBe('');
+  });
+});
+
+describe('conPunto', () => {
+  test.each([
+    ['Ya eres parte de ACCONS S.A.S.', 'Ya eres parte de ACCONS S.A.S.'],
+    ['Ya eres parte de Estudio Ruiz', 'Ya eres parte de Estudio Ruiz.'],
+    ['¿Listo?', '¿Listo?'],
+  ])('"%s" → "%s"', (frase, esperada) => {
+    expect(conPunto(frase)).toBe(esperada);
   });
 });
