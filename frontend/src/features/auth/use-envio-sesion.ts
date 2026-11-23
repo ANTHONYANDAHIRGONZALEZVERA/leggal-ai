@@ -2,14 +2,13 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
 
+import type { RespuestaSesionApi } from '@/services/api/contrato';
 import { aplicarErrorApi } from '@/services/api/errores-formulario';
 import { useSesion } from '@/services/sesion';
 
-import type { RespuestaSesion } from './api';
-
 type Opciones<T extends FieldValues> = {
   /** Petición que devuelve la sesión: iniciarSesion o registrarse. */
-  peticion: (datos: T) => Promise<RespuestaSesion>;
+  peticion: (datos: T) => Promise<RespuestaSesionApi>;
   setError: UseFormSetError<T>;
   /** Campos del formulario que pueden recibir un error del servidor. */
   campos: readonly Path<T>[];
