@@ -54,11 +54,14 @@ export const useSesion = create<EstadoSesion>()(
  * - onboarding: con sesión, pero sin terminar los pasos de bienvenida.
  * - app: con sesión y onboarding hecho (pestañas).
  */
-export type Acceso = 'invitado' | 'onboarding' | 'app';
+export type Acceso = 'invitado' | 'verificar' | 'onboarding' | 'app';
 
 export function useAcceso(): Acceso {
   return useSesion(({ tokens, usuario }) => {
     if (!tokens || !usuario) return 'invitado';
+    // Correo sin verificar: primero "Revisa tu correo" (B27). Quien ya terminó
+    // el onboarding no se bloquea (cuentas de antes de la verificación).
+    if (!usuario.correoVerificado && !usuario.onboardingCompleto) return 'verificar';
     return usuario.onboardingCompleto ? 'app' : 'onboarding';
   });
 }

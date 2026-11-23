@@ -33,6 +33,11 @@ const mensajes: Record<string, string> = {
   RUC_EN_USO: 'Ya hay una empresa registrada con este RUC.',
   // Onboarding (B34): otra persona tomó el @usuario mientras se llenaban los pasos.
   USUARIO_EN_USO: 'Otra persona acaba de tomar tu nombre de usuario. Vuelve al paso 1 y elige otro.',
+  // Códigos de 6 dígitos por correo (B27 y B28).
+  CODIGO_INCORRECTO: 'El código no es correcto. Revísalo e inténtalo de nuevo.',
+  CODIGO_EXPIRADO: 'El código venció. Pide uno nuevo.',
+  ESPERA_REENVIO: 'Espera unos segundos antes de pedir otro código.',
+  CORREO_YA_VERIFICADO: 'Tu correo ya está verificado.',
 };
 
 export class ErrorApi extends Error {

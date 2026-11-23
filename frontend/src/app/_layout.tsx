@@ -61,6 +61,9 @@ function Navegacion() {
       <Stack.Protected guard={acceso === 'invitado'}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
+      <Stack.Protected guard={acceso === 'verificar'}>
+        <Stack.Screen name="(verificacion)" />
+      </Stack.Protected>
       <Stack.Protected guard={acceso === 'onboarding'}>
         <Stack.Screen name="(onboarding)" />
       </Stack.Protected>

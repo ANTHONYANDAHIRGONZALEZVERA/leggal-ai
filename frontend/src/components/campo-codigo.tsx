@@ -27,12 +27,24 @@ type Props = {
   valor: string;
   onCambiar: (codigo: string) => void;
   error?: boolean;
+  /**
+   * `invitacion` (por defecto): letras y números con guion al medio, como
+   * ACC-7K2 (4/5). `numerico`: 6 dígitos que llegan por correo (B27 y B28),
+   * con teclado numérico y autocompletar del código.
+   */
+  tipo?: 'invitacion' | 'numerico';
+  /** Al escribir el sexto carácter (por ejemplo, para verificar solo). */
+  onCompleto?: (codigo: string) => void;
 };
 
-// Código de invitación del 4/5 (ACC-7K2): 6 cajas con un guion al medio. Por
-// dentro es un solo campo invisible encima de las cajas, así funcionan el
-// teclado, pegar el código completo y el lector de pantalla.
-export function CampoCodigo({ valor, onCambiar, error }: Props) {
+/** Solo dígitos, hasta 6 (lo que se escribe o se pega: "123 456" → "123456"). */
+export const soloDigitos = (texto: string) => texto.replace(/\D/g, '').slice(0, CAJAS);
+
+// 6 cajas para un código. Por dentro es un solo campo invisible encima de las
+// cajas, así funcionan el teclado, pegar el código completo y el lector de
+// pantalla.
+export function CampoCodigo({ valor, onCambiar, error, tipo = 'invitacion', onCompleto }: Props) {
+  const numerico = tipo === 'numerico';
   const reducido = useReducedMotion();
   const campo = useRef<TextInputInstance>(null);
   const [enfocado, setEnfocado] = useState(false);
@@ -102,7 +114,7 @@ export function CampoCodigo({ valor, onCambiar, error }: Props) {
                 ) : null}
               </Animated.View>
               {/* Guion entre las 3 primeras y las 3 últimas, como ACC-7K2. */}
-              {i === 2 && (
+              {i === 2 && !numerico && (
                 <View
                   style={{
                     width: 10,
@@ -120,14 +132,20 @@ export function CampoCodigo({ valor, onCambiar, error }: Props) {
       <TextInput
         ref={campo}
         value={valor}
-        onChangeText={(texto) => onCambiar(normalizarCodigo(texto))}
+        onChangeText={(texto) => {
+          const codigo = numerico ? soloDigitos(texto) : normalizarCodigo(texto);
+          onCambiar(codigo);
+          if (codigo.length === CAJAS && codigo !== valor) onCompleto?.(codigo);
+        }}
         onFocus={() => setEnfocado(true)}
         onBlur={() => setEnfocado(false)}
-        accessibilityLabel="Código de invitación"
-        accessibilityHint="6 letras o números, por ejemplo ACC-7K2"
-        autoCapitalize="characters"
+        accessibilityLabel={numerico ? 'Código de verificación' : 'Código de invitación'}
+        accessibilityHint={numerico ? '6 dígitos que te enviamos por correo' : '6 letras o números, por ejemplo ACC-7K2'}
+        autoCapitalize={numerico ? 'none' : 'characters'}
         autoCorrect={false}
-        autoComplete="off"
+        keyboardType={numerico ? 'number-pad' : 'default'}
+        autoComplete={numerico ? 'one-time-code' : 'off'}
+        textContentType={numerico ? 'oneTimeCode' : 'none'}
         spellCheck={false}
         caretHidden
         contextMenuHidden={false}

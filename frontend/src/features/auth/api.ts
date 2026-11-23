@@ -1,5 +1,5 @@
 import { api } from '@/services/api';
-import { RUTAS_AUTH, type RespuestaSesionApi, type RespuestaYoApi } from '@/services/api/contrato';
+import { RUTAS_AUTH, type RespuestaSesionApi, type RespuestaYoApi, type UsuarioApi } from '@/services/api/contrato';
 import { useSesion } from '@/services/sesion';
 
 import type { DatosInicioSesion, DatosRegistro } from './esquemas';
@@ -11,6 +11,31 @@ export function iniciarSesion(datos: DatosInicioSesion) {
 
 export function registrarse(datos: DatosRegistro) {
   return api.peticion<RespuestaSesionApi>(RUTAS_AUTH.registro, { metodo: 'POST', cuerpo: datos, publica: true });
+}
+
+/** "Revisa tu correo" (B27): confirma el correo con el código de 6 dígitos. */
+export function verificarCorreo(codigo: string) {
+  return api.peticion<{ usuario: UsuarioApi }>(RUTAS_AUTH.verificarCorreo, { metodo: 'POST', cuerpo: { codigo } });
+}
+
+/** Pide otro código de verificación (como mínimo cada 45 s). */
+export function reenviarCodigo() {
+  return api.peticion<void>(RUTAS_AUTH.reenviarCodigo, { metodo: 'POST' });
+}
+
+/** "Cambiar correo" mientras no esté verificado: envía un código al correo nuevo. */
+export function cambiarCorreo(correo: string) {
+  return api.peticion<{ usuario: UsuarioApi }>(RUTAS_AUTH.cambiarCorreo, { metodo: 'PATCH', cuerpo: { correo } });
+}
+
+/** "¿Olvidaste tu contraseña?" paso 1 (B28): siempre responde bien, exista o no la cuenta. */
+export function pedirCodigoContrasena(correo: string) {
+  return api.peticion<void>(RUTAS_AUTH.olvideContrasena, { metodo: 'POST', cuerpo: { correo }, publica: true });
+}
+
+/** Paso 2: código y contraseña nueva. Cierra todas las sesiones de la cuenta. */
+export function restablecerContrasena(datos: { correo: string; codigo: string; contrasena: string }) {
+  return api.peticion<void>(RUTAS_AUTH.restablecerContrasena, { metodo: 'POST', cuerpo: datos, publica: true });
 }
 
 /** Datos de la persona y sus empresas; también comprueba que la sesión sigue vigente. */

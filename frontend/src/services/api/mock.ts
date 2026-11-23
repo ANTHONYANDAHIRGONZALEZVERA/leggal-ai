@@ -4,6 +4,7 @@ import { quitarAcentos } from '@/utils/texto';
 import type { RespuestaTransporte, Transporte } from './cliente';
 import { RUTAS_AUTH, type UsuarioApi } from './contrato';
 import { leerCarga, leerVencimiento } from './jwt';
+import { crearRutasCodigos, emitirVerificacion, reiniciarCodigos } from './mock-codigos';
 import { crearRutasEmpresas, empresasDe, reiniciarEmpresas } from './mock-empresas';
 
 // API simulada (F11): responde dentro de la app como el backend según su
@@ -78,6 +79,7 @@ export function reiniciarMock() {
   arranque = `${Date.now().toString(36)}${reinicios}`;
   usuariosTomados = new Set(USUARIOS_TOMADOS);
   reiniciarEmpresas();
+  reiniciarCodigos();
 }
 reiniciarMock();
 
@@ -191,7 +193,24 @@ type Manejador = (cuerpo: Cuerpo, cabeceras: Record<string, string>) => Respuest
 /** Las rutas privadas reciben además a la persona dueña del token. */
 type ManejadorPrivado = (cuerpo: Cuerpo, persona: UsuarioSimulado, sid: string) => RespuestaTransporte;
 
+// Verificar el correo y recuperar la contraseña (B27 y B28).
+const codigos = crearRutasCodigos({
+  responder,
+  fallar,
+  publico: (persona) => publico(persona as UsuarioSimulado),
+  buscarPorCorreo: (correo) => usuarios.get(correo),
+  cambiarCorreo: (persona, correo) => {
+    usuarios.delete(persona.correo);
+    persona.correo = correo;
+    usuarios.set(correo, persona as UsuarioSimulado);
+  },
+  cerrarSesionesDe: (usuarioId) => {
+    for (const sesion of sesiones.values()) if (sesion.usuarioId === usuarioId) sesion.revocada = true;
+  },
+});
+
 const rutasPrivadas: Record<string, ManejadorPrivado> = {
+  ...codigos.privadas,
   ...crearRutasEmpresas({
     responder,
     fallar,
@@ -226,6 +245,7 @@ const rutasPrivadas: Record<string, ManejadorPrivado> = {
 };
 
 const rutas: Record<string, Manejador> = {
+  ...codigos.publicas,
   [`POST ${RUTAS_AUTH.login}`]: ({ correo, contrasena }) => {
     const usuario = usuarios.get(texto(correo));
     // Mismo error si el correo no existe o la contraseña falla: así no se
@@ -258,6 +278,8 @@ const rutas: Record<string, Manejador> = {
       contrasena: texto(contrasena),
     };
     usuarios.set(usuario.correo, usuario);
+    // Le llega el código para verificar el correo ("Revisa tu correo", B27).
+    emitirVerificacion(usuario.id);
     return responder(201, abrirSesion(usuario));
   },
 

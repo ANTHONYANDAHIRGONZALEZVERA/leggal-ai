@@ -7,6 +7,7 @@ import { useAcceso, type Acceso } from '@/services/sesion';
 // abrir la app y, después, "Bienvenido de nuevo" (services/entrada.ts).
 const inicioDe: Record<Acceso, () => Href> = {
   invitado: entradaInvitado,
+  verificar: () => '/verificar-correo',
   onboarding: () => '/perfil',
   app: () => '/inicio',
 };

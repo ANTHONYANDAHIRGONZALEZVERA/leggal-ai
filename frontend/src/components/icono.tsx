@@ -38,6 +38,8 @@ const trazos = {
   // Balanza del diseño con los platillos en curvas (c) en vez de arcos (a): en
   // el teléfono el trazo con arcos no se dibujaba.
   balanza: { d: 'M12 3v18M5 7h14M7 7l-3 7c0 4 6 4 6 0zM17 7l-3 7c0 4 6 4 6 0zM8 21h8', grosor: 1.8 },
+  // Revisa tu correo (F23).
+  sobre: { d: 'M3 6h18v12H3zM3 7l9 6 9-6', grosor: 1.8 },
   // Inicio (F12): encabezado, sugerencias del asistente y micrófono.
   abajo: { d: 'M6 9l6 6 6-6', grosor: 2 },
   calendario: { d: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4', grosor: 2 },

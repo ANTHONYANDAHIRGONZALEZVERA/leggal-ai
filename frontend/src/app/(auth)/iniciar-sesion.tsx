@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -13,6 +13,7 @@ import { CampoTexto } from '@/components/campo-texto';
 import { Esfera } from '@/components/esfera';
 import { Ondas } from '@/components/ondas';
 import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
+import { Presionable } from '@/components/presionable';
 import { SeparadorTexto } from '@/components/separador-texto';
 import { Texto } from '@/components/texto';
 import { TituloDestacado } from '@/components/titulo-destacado';
@@ -114,10 +115,13 @@ export default function IniciarSesion() {
                 />
               )}
             />
-            {/* La recuperación de contraseña llega en F24. */}
-            <Texto variante="enlace" style={{ alignSelf: 'flex-end' }} accessibilityRole="link">
-              ¿Olvidaste tu contraseña?
-            </Texto>
+            <Presionable
+              accessibilityRole="link"
+              hitSlop={12}
+              style={{ alignSelf: 'flex-end' }}
+              onPress={() => router.push('/recuperar-contrasena')}>
+              <Texto variante="enlace">¿Olvidaste tu contraseña?</Texto>
+            </Presionable>
           </Aparecer>
 
           <View style={{ flex: 1, minHeight: spacing.xxl }} />

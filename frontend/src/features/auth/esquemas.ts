@@ -28,3 +28,14 @@ export const esquemaRegistro = z.object({
 });
 
 export type DatosRegistro = z.infer<typeof esquemaRegistro>;
+
+// "¿Olvidaste tu contraseña?" (F24, B28).
+export const esquemaCorreo = z.object({ correo: esquemaInicioSesion.shape.correo });
+export type DatosCorreo = z.infer<typeof esquemaCorreo>;
+
+/** Paso 2: el código de 6 dígitos del correo y la contraseña nueva (mismas reglas del registro). */
+export const esquemaNuevaContrasena = z.object({
+  codigo: z.string().regex(/^\d{6}$/, 'Escribe los 6 dígitos del código'),
+  contrasena: esquemaRegistro.shape.contrasena,
+});
+export type DatosNuevaContrasena = z.infer<typeof esquemaNuevaContrasena>;
