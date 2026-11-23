@@ -119,7 +119,7 @@ Códigos del formato de error. El backend los usa en todas las rutas, no solo en
 | 401 | `REFRESCO_INVALIDO` | El refresh no existe o venció. La app vuelve al login. |
 | 401 | `SESION_REVOCADA` | La sesión fue cerrada, se reutilizó un refresh ya usado o la cuenta se suspendió mientras la sesión estaba abierta. La app vuelve al login. |
 | 403 | `USUARIO_INACTIVO` | La cuenta está suspendida o dada de baja. |
-| 403 | `SIN_PERMISO` | La persona inició sesión, pero su rol no tiene permiso para esa acción. La app muestra "No tienes permiso". |
+| 403 | `SIN_PERMISO` | La persona inició sesión, pero no puede hacer esa acción en la empresa activa: el token no trae empresa, su membresía no está activa o su rol no tiene el nivel pedido. La app muestra "No tienes permiso". Detalle en [permisos.md](permisos.md). |
 | 404 | `NO_ENCONTRADO` | La ruta o el recurso no existe (o pertenece a otra empresa: el backend no distingue los dos casos). |
 | 409 | `CORREO_EN_USO` | Registro con un correo que ya tiene cuenta. |
 | 4xx | `SOLICITUD_INVALIDA` | Cualquier otro error 4xx sin código propio, por ejemplo un **cuerpo que no es JSON válido** (400), 405 o 415. Lleva `campos: null`: `VALIDACION` se usa solo cuando hay campos que marcar. La app muestra el mensaje genérico. |

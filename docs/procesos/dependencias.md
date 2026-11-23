@@ -101,7 +101,7 @@ Solo para desarrollo (`devDependencies`, no van al servidor en producción):
 | 2026-11-08 | supertest | 7.3.2 | Peticiones HTTP en las pruebas e2e | Tony |
 | 2026-11-08 | ts-jest | 29.4.15 | Correr las pruebas de Jest escritas en TypeScript | Tony |
 | 2026-11-08 | ts-loader | 9.6.2 | Compilar TypeScript cuando se usa webpack en Nest | Tony |
-| 2026-11-08 | ts-node | 10.9.2 | Ejecutar TypeScript sin compilar (depuración de pruebas) | Tony |
+| 2026-11-08 | ts-node | 10.9.2 | Ejecutar TypeScript sin compilar (depuración de pruebas; desde B08 también corre el seed de Prisma) | Tony |
 | 2026-11-08 | tsconfig-paths | 4.2.0 | Resolver los alias de rutas de `tsconfig.json` | Tony |
 | 2026-11-08 | typescript | 6.0.3 | Tipado estático | Tony |
 

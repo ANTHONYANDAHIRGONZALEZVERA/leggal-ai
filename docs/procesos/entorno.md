@@ -102,6 +102,7 @@ Los dos tienen healthcheck (`pg_isready` y `redis-cli ping`). Con
 8. En backend/: `docker compose up -d` y esperar a que `docker compose ps`
    muestre los dos servicios como `healthy`.
 9. En backend/: `npx prisma migrate dev` (aplica las migraciones), luego
-   `npx prisma generate` y `npm run start:dev`.
+   `npx prisma generate`, `npm run db:seed` (módulos y roles base; se puede
+   repetir sin problema) y `npm run start:dev`.
    Prisma necesita el `.env` del paso 7: sin `DATABASE_URL` falla con
    `Cannot resolve environment variable: DATABASE_URL`.
