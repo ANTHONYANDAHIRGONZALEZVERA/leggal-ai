@@ -4,21 +4,19 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { almacenSeguro } from './almacen-seguro';
 import type { Tokens } from './api/cliente';
+import type { RespuestaSesionApi, UsuarioApi } from './api/contrato';
 
-export type Usuario = {
-  id: string;
-  nombre: string;
-  correo: string;
-  /** false hasta terminar los 5 pasos de bienvenida (F30-F31). */
-  onboardingCompleto: boolean;
-};
+/** La persona con sesión, tal como la describe el contrato B03. */
+export type Usuario = UsuarioApi;
 
 type EstadoSesion = {
   usuario: Usuario | null;
   tokens: Tokens | null;
-  iniciar: (sesion: { usuario: Usuario; tokens: Tokens }) => void;
-  actualizarTokens: (tokens: Tokens) => void;
+  /** Guarda la respuesta de login, registro o refresh: tokens y usuario al día. */
+  iniciar: (sesion: RespuestaSesionApi) => void;
   completarOnboarding: () => void;
+  /** Reemplaza los datos de la persona (por ejemplo, al terminar el onboarding). */
+  actualizarUsuario: (usuario: Usuario) => void;
   cerrar: () => void;
 };
 
@@ -34,10 +32,11 @@ export const useSesion = create<EstadoSesion>()(
     (set) => ({
       usuario: null,
       tokens: null,
-      iniciar: ({ usuario, tokens }) => set({ usuario, tokens }),
-      actualizarTokens: (tokens) => set({ tokens }),
+      iniciar: ({ usuario, tokenAcceso, tokenRefresco }) =>
+        set({ usuario, tokens: { acceso: tokenAcceso, renovacion: tokenRefresco } }),
       completarOnboarding: () =>
         set(({ usuario }) => ({ usuario: usuario && { ...usuario, onboardingCompleto: true } })),
+      actualizarUsuario: (usuario) => set({ usuario }),
       cerrar: () => set({ usuario: null, tokens: null }),
     }),
     {

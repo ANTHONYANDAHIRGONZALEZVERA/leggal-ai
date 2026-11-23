@@ -1,5 +1,7 @@
 import { screen, userEvent, waitFor } from '@testing-library/react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
+import { BackHandler, Linking } from 'react-native';
 
 import Perfil from '@/app/(onboarding)/perfil';
 import { iniciarSesion } from '@/features/auth/api';
@@ -10,15 +12,42 @@ import { useSesion } from '@/services/sesion';
 import { useBorradorOnboarding } from '../borrador';
 
 // El avatar se dibuja con Skia (no existe en Jest): se reemplaza por sus
-// iniciales, que es lo que importa aquí.
+// iniciales (o la foto elegida) y el botón de cámara, que es lo que importa aquí.
 jest.mock('@/components/avatar-esfera', () => {
-  const { Text } = require('react-native');
+  const { Pressable, Text } = require('react-native');
   const { iniciales } = require('@/utils/texto');
-  return { AvatarEsfera: ({ nombre }: { nombre: string }) => <Text testID="avatar">{iniciales(nombre)}</Text> };
+  return {
+    AvatarEsfera: ({ nombre, foto, onSubirFoto }: { nombre: string; foto?: string | null; onSubirFoto: () => void }) => (
+      <>
+        <Text testID="avatar">{foto ? `foto ${foto}` : iniciales(nombre)}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={foto ? 'Cambiar foto' : 'Subir foto'} onPress={onSubirFoto} />
+      </>
+    ),
+  };
 });
 jest.mock('@/components/icono', () => ({ Icono: () => null }));
+jest.mock('@/components/esfera', () => ({ Esfera: () => null }));
+// Selector y recorte del sistema: dobles que devuelven una foto lista.
+jest.mock('expo-image-picker', () => ({
+  launchImageLibraryAsync: jest.fn(),
+  launchCameraAsync: jest.fn(),
+  getCameraPermissionsAsync: jest.fn(),
+  requestCameraPermissionsAsync: jest.fn(),
+}));
+jest.mock('expo-image-manipulator', () => {
+  const contexto = {
+    crop: () => contexto,
+    resize: () => contexto,
+    renderAsync: async () => ({ saveAsync: async () => ({ uri: 'file:///cache/lista.jpg' }) }),
+  };
+  return { SaveFormat: { JPEG: 'jpeg' }, ImageManipulator: { manipulate: () => contexto } };
+});
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => false) } }));
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => false) },
+  // Como si la pantalla estuviera al frente.
+  useFocusEffect: (efecto: () => void | (() => void)) => require('react').useEffect(efecto, [efecto]),
+}));
 
 // Cuenta de prueba con el onboarding pendiente, con su token real de la API simulada.
 beforeEach(async () => {
@@ -50,6 +79,38 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
     expect(await screen.findByText('@bruno.diaz')).toBeOnTheScreen();
     expect(screen.getByText('@bdiaz.legal')).toBeOnTheScreen();
     expect(screen.getByText('@brunodiaz')).toBeOnTheScreen();
+  });
+
+  test('mientras llegan las sugerencias muestra su lugar (carga esqueleto) y luego las cambia por ellas', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), 'Bruno Díaz');
+
+    expect(screen.getByLabelText('Buscando sugerencias de nombre de usuario')).toBeOnTheScreen();
+    expect(await screen.findByText('@bruno.diaz')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+  });
+
+  test('si el servidor no tiene sugerencias, la carga se quita y no queda nada', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), '12'); // sin letras: no hay con qué armar @usuarios
+    expect(screen.getByLabelText('Buscando sugerencias de nombre de usuario')).toBeOnTheScreen();
+
+    await waitFor(() => expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen());
+    expect(screen.queryByLabelText('Sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+  });
+
+  test('con una sola letra no sugiere ni muestra la carga', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), 'B');
+
+    expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Sugerencias de nombre de usuario')).not.toBeOnTheScreen();
   });
 
   test('las sugerencias cambian si cambia el nombre', async () => {
@@ -171,5 +232,134 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
     await user.press(screen.getByLabelText('Salir y volver al inicio de sesión'));
 
     await waitFor(() => expect(useSesion.getState().tokens).toBeNull());
+  });
+
+  test('el "atrás" del teléfono también sale (y no deja que el sistema cierre la app)', async () => {
+    const escuchar = jest.spyOn(BackHandler, 'addEventListener');
+    await renderizar(<Perfil />);
+    const atras = escuchar.mock.calls.find(([evento]) => evento === 'hardwareBackPress')?.[1] as (() => boolean) | undefined;
+
+    expect(atras?.()).toBe(true);
+    await waitFor(() => expect(useSesion.getState().tokens).toBeNull());
+    escuchar.mockRestore();
+  });
+});
+
+// Foto de perfil del paso 1/5: hoja nativa de opciones, permiso de cámara
+// explicado antes de pedirlo y la foto ya preparada en el borrador.
+describe('Onboarding 1/5: foto de perfil', () => {
+  const selector = jest.mocked(ImagePicker);
+  const FOTO = { uri: 'file:///fotos/yo.jpg', width: 1000, height: 1000, type: 'image', mimeType: 'image/jpeg', fileSize: 900_000 } as const;
+  const permiso = (granted: boolean, canAskAgain: boolean) =>
+    ({ granted, canAskAgain, status: granted ? 'granted' : 'denied', expires: 'never' }) as ImagePicker.CameraPermissionResponse;
+  const avatar = () => screen.getByTestId('avatar');
+
+  test('el botón de cámara abre las opciones; sin foto no ofrece quitarla', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Subir foto'));
+
+    expect(screen.getByText('Tomar foto')).toBeOnTheScreen();
+    expect(screen.getByText('Elegir de la galería')).toBeOnTheScreen();
+    expect(screen.queryByText('Quitar foto')).not.toBeOnTheScreen();
+  });
+
+  test('al elegir de la galería, la foto preparada reemplaza las iniciales y se guarda en el borrador', async () => {
+    selector.launchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [FOTO] });
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Subir foto'));
+    await user.press(screen.getByText('Elegir de la galería'));
+
+    await waitFor(() => expect(avatar()).toHaveTextContent('foto file:///cache/lista.jpg'));
+    expect(screen.queryByTestId('hoja')).not.toBeOnTheScreen();
+    expect(useBorradorOnboarding.getState().foto).toBe('file:///cache/lista.jpg');
+  });
+
+  test('una imagen no permitida avisa debajo del avatar y no la usa', async () => {
+    selector.launchImageLibraryAsync.mockResolvedValue({ canceled: false, assets: [{ ...FOTO, mimeType: 'image/gif' }] });
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Subir foto'));
+    await user.press(screen.getByText('Elegir de la galería'));
+
+    expect(await screen.findByText('Elige una foto en JPG, PNG, WEBP o HEIC.')).toBeOnTheScreen();
+    expect(useBorradorOnboarding.getState().foto).toBeNull();
+  });
+
+  test('con foto, "Quitar foto" vuelve a las iniciales', async () => {
+    useBorradorOnboarding.getState().guardarFoto('file:///cache/lista.jpg');
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Cambiar foto'));
+    await user.press(screen.getByText('Quitar foto'));
+
+    expect(useBorradorOnboarding.getState().foto).toBeNull();
+    expect(avatar()).not.toHaveTextContent(/foto/);
+  });
+
+  test('"Tomar foto" sin permiso explica para qué es antes del aviso del sistema', async () => {
+    selector.getCameraPermissionsAsync.mockResolvedValue(permiso(false, true));
+    selector.requestCameraPermissionsAsync.mockResolvedValue(permiso(true, true));
+    selector.launchCameraAsync.mockResolvedValue({ canceled: false, assets: [FOTO] });
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Subir foto'));
+    await user.press(screen.getByText('Tomar foto'));
+
+    // El aviso del sistema todavía no apareció: primero la explicación.
+    expect(await screen.findByText('Permitir cámara')).toBeOnTheScreen();
+    expect(selector.requestCameraPermissionsAsync).not.toHaveBeenCalled();
+
+    await user.press(screen.getByText('Permitir cámara'));
+
+    await waitFor(() => expect(avatar()).toHaveTextContent('foto file:///cache/lista.jpg'));
+    expect(selector.launchCameraAsync).toHaveBeenCalledTimes(1);
+  });
+
+  test('"Ahora no" cierra la explicación sin pedir el permiso ni abrir la cámara', async () => {
+    selector.getCameraPermissionsAsync.mockResolvedValue(permiso(false, true));
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Subir foto'));
+    await user.press(screen.getByText('Tomar foto'));
+    await user.press(await screen.findByText('Ahora no'));
+
+    expect(screen.queryByText('Permitir cámara')).not.toBeOnTheScreen();
+    expect(selector.requestCameraPermissionsAsync).not.toHaveBeenCalled();
+    expect(selector.launchCameraAsync).not.toHaveBeenCalled();
+  });
+
+  test('si la cámara quedó bloqueada, ofrece abrir los Ajustes del teléfono', async () => {
+    selector.getCameraPermissionsAsync.mockResolvedValue(permiso(false, false));
+    const abrirAjustes = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Subir foto'));
+    await user.press(screen.getByText('Tomar foto'));
+    await user.press(await screen.findByText('Abrir Ajustes'));
+
+    expect(abrirAjustes).toHaveBeenCalledTimes(1);
+    expect(selector.launchCameraAsync).not.toHaveBeenCalled();
+  });
+
+  test('con el permiso ya dado, "Tomar foto" abre la cámara directo', async () => {
+    selector.getCameraPermissionsAsync.mockResolvedValue(permiso(true, true));
+    selector.launchCameraAsync.mockResolvedValue({ canceled: false, assets: [FOTO] });
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.press(screen.getByLabelText('Subir foto'));
+    await user.press(screen.getByText('Tomar foto'));
+
+    await waitFor(() => expect(avatar()).toHaveTextContent('foto file:///cache/lista.jpg'));
+    expect(screen.queryByText('Permitir cámara')).not.toBeOnTheScreen();
   });
 });

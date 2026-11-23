@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Alert, ScrollView, View, type TextInputInstance } from 'react-native';
+import { BackHandler, Modal, ScrollView, View, type TextInputInstance } from 'react-native';
 
 import { Aparecer } from '@/components/aparecer';
 import { AvatarEsfera } from '@/components/avatar-esfera';
@@ -14,8 +14,11 @@ import { Boton } from '@/components/boton';
 import { BotonVolver } from '@/components/boton-volver';
 import { CampoTexto } from '@/components/campo-texto';
 import { Chip } from '@/components/chip';
+import { EsqueletoChips } from '@/components/esqueleto-chips';
+import { HojaOpciones } from '@/components/hoja-opciones';
 import { Icono } from '@/components/icono';
 import { PantallaConEsfera } from '@/components/pantalla-con-esfera';
+import { PantallaPermiso, type PuntoPermiso } from '@/components/pantalla-permiso';
 import { Texto } from '@/components/texto';
 import { TituloDestacado } from '@/components/titulo-destacado';
 import { cerrarSesion } from '@/features/auth/api';
@@ -23,6 +26,7 @@ import { claveDisponibilidad, consultarUsuario } from '@/features/onboarding/api
 import { useBorradorOnboarding } from '@/features/onboarding/borrador';
 import { esquemaPerfil, type DatosPerfil, type PerfilValidado } from '@/features/onboarding/esquemas';
 import { useDisponibilidad, useSugerencias, type EstadoUsuario } from '@/features/onboarding/use-disponibilidad';
+import { useFotoPerfil } from '@/features/onboarding/use-foto-perfil';
 import { aplicarErrorApi } from '@/services/api/errores-formulario';
 import { colors, fontFamily, MARGEN_PANTALLA, spacing } from '@/theme';
 
@@ -34,6 +38,13 @@ const avisoUsuario: Partial<Record<EstadoUsuario, { texto: string; color: string
   error: { texto: 'No se pudo revisar ahora. Se revisará al continuar.', color: colors.textoSecundario },
 };
 
+// Para qué se usa la cámara, antes de pedir el permiso (diseño PermisoSistema).
+const PUNTOS_CAMARA: PuntoPermiso[] = [
+  { icono: 'camara', texto: 'Solo para tu foto de perfil', fondo: '#ECE7FF', color: colors.acento },
+  { icono: 'candado', texto: 'Quitamos la ubicación y los datos ocultos de la foto', fondo: '#DDF4F6', color: colors.verdeAzuladoOscuro },
+  { icono: 'escudo', texto: 'Puedes desactivarla en Ajustes', fondo: '#FFF1DC', color: '#A15C00' },
+];
+
 // Onboarding 1/5 "¿Cómo te llamamos?" (F30). Los campos empiezan vacíos: al
 // escribir el nombre visible aparecen @usuarios libres armados con él, y el
 // @usuario se revisa en el servidor mientras se escribe.
@@ -42,6 +53,7 @@ export default function Perfil() {
   const clienteConsultas = useQueryClient();
   const { perfil, guardarPerfil } = useBorradorOnboarding();
   const [errorGeneral, setErrorGeneral] = useState<string>();
+  const foto = useFotoPerfil();
 
   // Si vuelve desde el paso 2, encuentra lo que ya había llenado.
   const {
@@ -56,7 +68,7 @@ export default function Perfil() {
   });
   const [nombre, usuario] = useWatch({ control, name: ['nombre', 'usuario'] });
   const estado = useDisponibilidad(usuario);
-  const sugerencias = useSugerencias(nombre);
+  const { sugerencias, buscando } = useSugerencias(nombre);
 
   const continuar = handleSubmit(async (datos) => {
     setErrorGeneral(undefined);
@@ -82,6 +94,18 @@ export default function Perfil() {
 
   const aviso = errors.usuario ? undefined : avisoUsuario[estado];
 
+  // El "atrás" del teléfono hace lo mismo que la flecha: salir al inicio de
+  // sesión. Solo mientras esta pantalla está al frente (no desde el 2/5).
+  useFocusEffect(
+    useCallback(() => {
+      const suscripcion = BackHandler.addEventListener('hardwareBackPress', () => {
+        void cerrarSesion();
+        return true;
+      });
+      return () => suscripcion.remove();
+    }, []),
+  );
+
   return (
     <PantallaConEsfera>
       <StatusBar style="dark" />
@@ -100,12 +124,15 @@ export default function Perfil() {
             </Texto>
           </Aparecer>
 
-          <Aparecer retraso={100} style={{ alignItems: 'center', paddingTop: 28 }}>
-            {/* La foto de perfil aún no tiene tarea asignada en el plan. */}
-            <AvatarEsfera
-              nombre={nombre}
-              onSubirFoto={() => Alert.alert('Foto de perfil', 'Muy pronto podrás subir tu foto.')}
-            />
+          <Aparecer retraso={100} style={{ alignItems: 'center', gap: spacing.sm, paddingTop: 28 }}>
+            {/* La foto queda en el teléfono: el backend aún no tiene dónde
+                guardarla (propuesta en docs/api/foto-perfil-propuesta.md). */}
+            <AvatarEsfera nombre={nombre} foto={foto.foto} onSubirFoto={foto.hoja.abrir} />
+            {foto.error && (
+              <Texto variante="nota" accessibilityLiveRegion="polite" style={{ color: colors.error, textAlign: 'center' }}>
+                {foto.error}
+              </Texto>
+            )}
           </Aparecer>
 
           <Aparecer retraso={200} style={{ paddingTop: 30, gap: 14 }}>
@@ -173,6 +200,8 @@ export default function Perfil() {
                 ))}
               </View>
             )}
+            {/* Mientras llegan las primeras, su lugar: así se sabe que vienen. */}
+            {sugerencias.length === 0 && buscando && <EsqueletoChips etiqueta="Buscando sugerencias de nombre de usuario" />}
           </Aparecer>
 
           <View style={{ flex: 1, minHeight: spacing.xxl }} />
@@ -183,6 +212,25 @@ export default function Perfil() {
           </View>
         </View>
       </ScrollView>
+
+      <HojaOpciones visible={foto.hoja.visible} opciones={foto.hoja.opciones} onCerrar={foto.hoja.cerrar} />
+
+      <Modal visible={foto.permiso.aviso !== null} animationType="slide" statusBarTranslucent onRequestClose={foto.permiso.ahoraNo}>
+        <PantallaPermiso
+          icono="camara"
+          titulo="Activa la"
+          destacado="cámara"
+          descripcion={
+            foto.permiso.aviso === 'bloqueado'
+              ? 'La cámara está desactivada para Leggal AI. Actívala en los Ajustes del teléfono.'
+              : 'La usamos solo cuando tocas Tomar foto. No la abrimos en segundo plano.'
+          }
+          puntos={PUNTOS_CAMARA}
+          textoPermitir={foto.permiso.aviso === 'bloqueado' ? 'Abrir Ajustes' : 'Permitir cámara'}
+          onPermitir={() => void foto.permiso.permitir()}
+          onAhoraNo={foto.permiso.ahoraNo}
+        />
+      </Modal>
     </PantallaConEsfera>
   );
 }

@@ -47,6 +47,18 @@ const variantes = {
     texto: colors.sobreOscuro,
     tipo: 'botonPequeno',
   },
+  // "Ahora no" de la pantalla de permiso: solo texto, sin fondo.
+  texto: {
+    contenedor: { height: sizes.botonPequeno, borderRadius: radius.boton },
+    texto: colors.texto,
+    tipo: 'botonPequeno',
+  },
+  // "Cancelar solicitud": solo texto, en rojo (acción que deshace algo).
+  textoPeligro: {
+    contenedor: { height: sizes.botonPequeno, borderRadius: radius.boton },
+    texto: '#B4232A',
+    tipo: 'botonPequeno',
+  },
 } as const satisfies Record<string, { contenedor: ViewStyle; texto: string; tipo: keyof typeof type }>;
 
 type Props = {

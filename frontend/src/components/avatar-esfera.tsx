@@ -1,4 +1,5 @@
 import { Canvas, Circle, SweepGradient, vec } from '@shopify/react-native-skia';
+import { Image } from 'expo-image';
 import { View } from 'react-native';
 import Animated, { useReducedMotion, type CSSAnimationKeyframes } from 'react-native-reanimated';
 
@@ -23,21 +24,29 @@ const girar: CSSAnimationKeyframes = {
 
 type Props = {
   nombre: string;
-  /** Si se pasa, aparece el botón de cámara para subir una foto. */
+  /** Foto elegida (archivo local). Sin foto se ven las iniciales. */
+  foto?: string | null;
+  /** Si se pasa, aparece el botón de cámara para subir o cambiar la foto. */
   onSubirFoto?: () => void;
 };
 
 // Avatar del onboarding: esfera cromada con las iniciales, un aro tornasol que
-// gira y el botón de cámara. Las iniciales cambian mientras se escribe el nombre.
-export function AvatarEsfera({ nombre, onSubirFoto }: Props) {
+// gira y el botón de cámara. Las iniciales cambian mientras se escribe el
+// nombre; si la persona elige una foto, la foto ocupa el lugar de la esfera.
+export function AvatarEsfera({ nombre, foto, onSubirFoto }: Props) {
   const reducido = useReducedMotion();
   const letras = iniciales(nombre);
+  const descripcion = foto
+    ? 'Tu foto de perfil'
+    : letras
+      ? `Avatar con las iniciales ${letras.split('').join(' ')}`
+      : 'Avatar';
 
   return (
     <View
       accessible
       accessibilityRole="image"
-      accessibilityLabel={letras ? `Avatar con las iniciales ${letras.split('').join(' ')}` : 'Avatar'}
+      accessibilityLabel={descripcion}
       style={{ width: LADO, height: LADO }}>
       <Animated.View
         pointerEvents="none"
@@ -57,17 +66,27 @@ export function AvatarEsfera({ nombre, onSubirFoto }: Props) {
         </Canvas>
       </Animated.View>
 
-      <Esfera ancho={LADO} alto={LADO} ciclo={8000} />
-
-      <View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
-        <Texto variante="titulo" style={{ fontSize: 34, lineHeight: 40, fontFamily: fontFamily.extrabold, color: colors.etiqueta }}>
-          {letras}
-        </Texto>
-      </View>
+      {foto ? (
+        <Image
+          source={{ uri: foto }}
+          contentFit="cover"
+          transition={200}
+          style={{ width: LADO, height: LADO, borderRadius: LADO / 2, backgroundColor: colors.borde }}
+        />
+      ) : (
+        <>
+          <Esfera ancho={LADO} alto={LADO} ciclo={8000} />
+          <View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <Texto variante="titulo" style={{ fontSize: 34, lineHeight: 40, fontFamily: fontFamily.extrabold, color: colors.etiqueta }}>
+              {letras}
+            </Texto>
+          </View>
+        </>
+      )}
 
       {onSubirFoto && (
         <Presionable
-          accessibilityLabel="Subir foto"
+          accessibilityLabel={foto ? 'Cambiar foto' : 'Subir foto'}
           onPress={onSubirFoto}
           style={{
             position: 'absolute',

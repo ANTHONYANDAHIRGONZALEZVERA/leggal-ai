@@ -1,25 +1,38 @@
 // Errores de la API en un solo formato, con mensajes en español listos para
 // mostrar. Las pantallas nunca leen respuestas crudas del servidor.
 
-/** Cuerpo de error del backend (contrato provisional: docs/api/auth-borrador-frontend.md). */
+/** Cuerpo de error del backend (contrato B03: docs/api/auth.md). */
 export type CuerpoError = {
   codigo?: string;
   mensaje?: string;
-  /** Errores de campos concretos del formulario, por nombre de campo. */
-  campos?: Record<string, string>;
+  /** Solo en errores de validación: campo → mensaje. En los demás llega null. */
+  campos?: Record<string, string> | null;
 };
 
 export const MENSAJE_GENERICO = 'Algo salió mal. Inténtalo de nuevo.';
 
 // Mensajes propios para los códigos conocidos: el texto que ve la persona no
 // depende de cómo lo redacte el servidor.
+// Los que llevan "app" los crea la propia app; los demás vienen del backend.
 const mensajes: Record<string, string> = {
-  SIN_CONEXION: 'No hay conexión. Revisa tu internet e inténtalo de nuevo.',
-  TIEMPO_AGOTADO: 'El servidor tardó demasiado en responder. Inténtalo de nuevo.',
-  SESION_EXPIRADA: 'Tu sesión expiró. Vuelve a iniciar sesión.',
+  SIN_CONEXION: 'No hay conexión. Revisa tu internet e inténtalo de nuevo.', // app
+  TIEMPO_AGOTADO: 'El servidor tardó demasiado en responder. Inténtalo de nuevo.', // app
+  SESION_EXPIRADA: 'Tu sesión expiró. Vuelve a iniciar sesión.', // app
+  ERROR_SERVIDOR: 'El servidor tuvo un problema. Inténtalo en unos minutos.', // app: 5xx sin cuerpo
   CREDENCIALES_INVALIDAS: 'Correo o contraseña incorrectos.',
   CORREO_EN_USO: 'Ya existe una cuenta con este correo.',
-  ERROR_SERVIDOR: 'El servidor tuvo un problema. Inténtalo en unos minutos.',
+  SESION_REVOCADA: 'Tu sesión se cerró por seguridad. Vuelve a iniciar sesión.',
+  USUARIO_INACTIVO: 'Tu cuenta está suspendida. Escríbenos si crees que es un error.',
+  DEMASIADOS_INTENTOS: 'Hiciste demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
+  ERROR_INTERNO: 'El servidor tuvo un problema. Inténtalo en unos minutos.',
+  // Empresas y códigos de invitación (B35 y B39).
+  CODIGO_INVALIDO: 'Ese código no existe. Revisa que esté bien escrito.',
+  CODIGO_VENCIDO: 'Ese código ya no sirve. Pide uno nuevo al administrador de tu empresa.',
+  YA_ES_MIEMBRO: 'Ya eres parte de esa empresa.',
+  SOLICITUD_EXISTENTE: 'Ya pediste unirte a esa empresa. Espera la respuesta del administrador.',
+  RUC_EN_USO: 'Ya hay una empresa registrada con este RUC.',
+  // Onboarding (B34): otra persona tomó el @usuario mientras se llenaban los pasos.
+  USUARIO_EN_USO: 'Otra persona acaba de tomar tu nombre de usuario. Vuelve al paso 1 y elige otro.',
 };
 
 export class ErrorApi extends Error {
@@ -28,12 +41,12 @@ export class ErrorApi extends Error {
   readonly estado: number;
   readonly campos?: Record<string, string>;
 
-  constructor(codigo: string, estado: number, mensajeServidor?: string, campos?: Record<string, string>) {
+  constructor(codigo: string, estado: number, mensajeServidor?: string, campos?: Record<string, string> | null) {
     super(mensajes[codigo] ?? mensajeServidor ?? MENSAJE_GENERICO);
     this.name = 'ErrorApi';
     this.codigo = codigo;
     this.estado = estado;
-    this.campos = campos;
+    this.campos = campos ?? undefined;
   }
 
   static desdeRespuesta(estado: number, cuerpo: unknown): ErrorApi {

@@ -1,4 +1,6 @@
-import { crearClienteApi, RUTA_RENOVAR, type RespuestaTransporte, type Tokens, type Transporte } from '../cliente';
+import { sesionDePrueba } from '@/pruebas/sesion';
+
+import { crearClienteApi, RUTA_REFRESH, type RespuestaTransporte, type Tokens, type Transporte } from '../cliente';
 import { ErrorApi } from '../errores';
 
 // Cliente de la API (F09). Se prueba con un transporte falso que registra cada
@@ -24,10 +26,10 @@ function armar({ tokens = null as Tokens | null, responder = (_ruta: string): Re
   const cliente = crearClienteApi({
     urlBase: URL_BASE,
     transporte,
-    cabeceras: { 'X-Dispositivo': 'android/1.0.0' },
+    cabeceras: { 'X-Dispositivo': 'android' },
     obtenerTokens: () => sesion,
-    guardarTokens: (nuevos) => {
-      sesion = nuevos;
+    guardarSesion: ({ tokenAcceso, tokenRefresco }) => {
+      sesion = { acceso: tokenAcceso, renovacion: tokenRefresco };
     },
     alExpirarSesion,
     limiteMs,
@@ -37,6 +39,8 @@ function armar({ tokens = null as Tokens | null, responder = (_ruta: string): Re
 
 const TOKENS = { acceso: 'acceso-viejo', renovacion: 'renovacion-1' };
 const TOKENS_NUEVOS = { acceso: 'acceso-nuevo', renovacion: 'renovacion-2' };
+/** Lo que responde POST /auth/refresh (contrato B03) con TOKENS_NUEVOS. */
+const REFRESH_OK = sesionDePrueba({ tokenAcceso: 'acceso-nuevo', tokenRefresco: 'renovacion-2' });
 
 describe('crearClienteApi: petición', () => {
   test('arma la URL, envía el cuerpo en JSON y las cabeceras fijas', async () => {
@@ -52,7 +56,7 @@ describe('crearClienteApi: petición', () => {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'X-Dispositivo': 'android/1.0.0',
+          'X-Dispositivo': 'android',
         },
       }),
     );
@@ -99,7 +103,7 @@ describe('crearClienteApi: errores', () => {
         respuesta(409, { codigo: 'CORREO_EN_USO', mensaje: 'Email taken', campos: { correo: 'Ya existe' } }),
     });
 
-    const peticion = cliente.peticion('/auth/registro', { metodo: 'POST', publica: true });
+    const peticion = cliente.peticion('/auth/register', { metodo: 'POST', publica: true });
 
     await expect(peticion).rejects.toBeInstanceOf(ErrorApi);
     await expect(peticion).rejects.toMatchObject({
@@ -152,8 +156,8 @@ describe('crearClienteApi: renovación del token', () => {
   /** Servidor falso: rechaza el token viejo y acepta el nuevo. */
   function servidorConTokenVencido(renovacionAceptada = true) {
     return (ruta: string) => {
-      if (ruta === RUTA_RENOVAR) return renovacionAceptada ? respuesta(200, TOKENS_NUEVOS) : respuesta(401, { codigo: 'SESION_EXPIRADA' });
-      return respuesta(401, { codigo: 'TOKEN_VENCIDO' });
+      if (ruta === RUTA_REFRESH) return renovacionAceptada ? respuesta(200, REFRESH_OK) : respuesta(401, { codigo: 'REFRESCO_INVALIDO' });
+      return respuesta(401, { codigo: 'NO_AUTENTICADO' });
     };
   }
 
@@ -161,16 +165,16 @@ describe('crearClienteApi: renovación del token', () => {
     const { cliente, transporte, sesion } = armar({ tokens: TOKENS });
     transporte.mockImplementation(async (url, init) => {
       const ruta = url.replace(URL_BASE, '');
-      if (ruta === RUTA_RENOVAR) return respuesta(200, TOKENS_NUEVOS);
+      if (ruta === RUTA_REFRESH) return respuesta(200, REFRESH_OK);
       return init.headers.Authorization === 'Bearer acceso-nuevo' ? respuesta(200, ['caso']) : respuesta(401);
     });
 
     await expect(cliente.peticion('/casos')).resolves.toEqual(['caso']);
 
     const rutas = transporte.mock.calls.map(([url]) => url.replace(URL_BASE, ''));
-    expect(rutas).toEqual(['/casos', RUTA_RENOVAR, '/casos']);
+    expect(rutas).toEqual(['/casos', RUTA_REFRESH, '/casos']);
     // La renovación envía el token de renovación, sin el de acceso vencido.
-    expect(JSON.parse(transporte.mock.calls[1][1].body ?? '')).toEqual({ renovacion: 'renovacion-1' });
+    expect(JSON.parse(transporte.mock.calls[1][1].body ?? '')).toEqual({ tokenRefresco: 'renovacion-1' });
     expect(transporte.mock.calls[1][1].headers.Authorization).toBeUndefined();
     expect(sesion()).toEqual(TOKENS_NUEVOS);
   });
@@ -178,13 +182,13 @@ describe('crearClienteApi: renovación del token', () => {
   test('varias peticiones vencidas a la vez comparten una sola renovación', async () => {
     const { cliente, transporte } = armar({ tokens: TOKENS });
     transporte.mockImplementation(async (url, init) => {
-      if (url.endsWith(RUTA_RENOVAR)) return respuesta(200, TOKENS_NUEVOS);
+      if (url.endsWith(RUTA_REFRESH)) return respuesta(200, REFRESH_OK);
       return init.headers.Authorization === 'Bearer acceso-nuevo' ? respuesta(200, 'ok') : respuesta(401);
     });
 
     await Promise.all([cliente.peticion('/casos'), cliente.peticion('/agenda'), cliente.peticion('/docs')]);
 
-    const renovaciones = transporte.mock.calls.filter(([url]) => url.endsWith(RUTA_RENOVAR));
+    const renovaciones = transporte.mock.calls.filter(([url]) => url.endsWith(RUTA_REFRESH));
     expect(renovaciones).toHaveLength(1);
   });
 
@@ -201,7 +205,7 @@ describe('crearClienteApi: renovación del token', () => {
   test('si la petición repetida vuelve a dar 401, no entra en un bucle', async () => {
     const { cliente, transporte } = armar({
       tokens: TOKENS,
-      responder: (ruta) => (ruta === RUTA_RENOVAR ? respuesta(200, TOKENS_NUEVOS) : respuesta(401, { codigo: 'SIN_PERMISO' })),
+      responder: (ruta) => (ruta === RUTA_REFRESH ? respuesta(200, REFRESH_OK) : respuesta(401, { codigo: 'SIN_PERMISO' })),
     });
 
     await expect(cliente.peticion('/casos')).rejects.toMatchObject({ estado: 401 });
@@ -213,12 +217,58 @@ describe('crearClienteApi: renovación del token', () => {
     // Un corte de red no significa que la sesión sea inválida.
     const { cliente, transporte, alExpirarSesion } = armar({ tokens: TOKENS });
     transporte.mockImplementation(async (url) => {
-      if (url.endsWith(RUTA_RENOVAR)) throw new TypeError('Network request failed');
+      if (url.endsWith(RUTA_REFRESH)) throw new TypeError('Network request failed');
       return respuesta(401);
     });
 
     await expect(cliente.peticion('/casos')).rejects.toMatchObject({ codigo: 'SIN_CONEXION' });
     expect(alExpirarSesion).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    [503, { codigo: 'ERROR_INTERNO' }, 'ERROR_INTERNO'],
+    [429, { codigo: 'DEMASIADOS_INTENTOS' }, 'DEMASIADOS_INTENTOS'],
+  ])('si el refresh responde %i, conserva la sesión y avisa (solo un 401 la cierra)', async (estado, cuerpo, codigo) => {
+    const { cliente, alExpirarSesion, sesion } = armar({
+      tokens: TOKENS,
+      responder: (ruta) => (ruta === RUTA_REFRESH ? respuesta(estado, cuerpo) : respuesta(401, { codigo: 'NO_AUTENTICADO' })),
+    });
+
+    await expect(cliente.peticion('/casos')).rejects.toMatchObject({ codigo, estado });
+
+    expect(alExpirarSesion).not.toHaveBeenCalled();
+    expect(sesion()).toEqual(TOKENS);
+  });
+
+  test('si una ruta privada responde SESION_REVOCADA, cierra la sesión sin intentar renovar', async () => {
+    const { cliente, transporte, alExpirarSesion } = armar({
+      tokens: TOKENS,
+      responder: () => respuesta(401, { codigo: 'SESION_REVOCADA', mensaje: 'Sesión cerrada.', campos: null }),
+    });
+
+    await expect(cliente.peticion('/auth/me')).rejects.toMatchObject({
+      codigo: 'SESION_REVOCADA',
+      message: 'Tu sesión se cerró por seguridad. Vuelve a iniciar sesión.',
+    });
+
+    expect(alExpirarSesion).toHaveBeenCalledTimes(1);
+    expect(transporte).toHaveBeenCalledTimes(1);
+  });
+
+  test('el refresh también guarda el usuario al día que trae la respuesta', async () => {
+    const guardarSesion = jest.fn();
+    const cliente = crearClienteApi({
+      urlBase: URL_BASE,
+      transporte: async (url) => (url.endsWith(RUTA_REFRESH) ? respuesta(200, REFRESH_OK) : respuesta(401)),
+      obtenerTokens: () => TOKENS,
+      guardarSesion,
+      alExpirarSesion: jest.fn(),
+      limiteMs: 1000,
+    });
+
+    await cliente.peticion('/casos').catch(() => undefined);
+
+    expect(guardarSesion).toHaveBeenCalledWith(REFRESH_OK);
   });
 
   test('un 401 en una ruta pública (login) no intenta renovar', async () => {
@@ -244,7 +294,7 @@ describe('crearClienteApi: renovación antes de vencer (F10)', () => {
   test('si al token le queda menos de un minuto, lo renueva antes de la petición', async () => {
     const { cliente, transporte } = armar({
       tokens: { acceso: tokenQueVenceEn(30_000), renovacion: 'renovacion-1' },
-      responder: (ruta) => (ruta === RUTA_RENOVAR ? respuesta(200, TOKENS_NUEVOS) : respuesta(200, ['caso'])),
+      responder: (ruta) => (ruta === RUTA_REFRESH ? respuesta(200, REFRESH_OK) : respuesta(200, ['caso'])),
     });
 
     await expect(cliente.peticion('/casos')).resolves.toEqual(['caso']);
@@ -252,7 +302,7 @@ describe('crearClienteApi: renovación antes de vencer (F10)', () => {
     const llamadas = transporte.mock.calls.map(([url, init]) => [url.replace(URL_BASE, ''), init.headers.Authorization]);
     // Primero renueva y luego pide los casos ya con el token nuevo: sin un 401 de por medio.
     expect(llamadas).toEqual([
-      [RUTA_RENOVAR, undefined],
+      [RUTA_REFRESH, undefined],
       ['/casos', 'Bearer acceso-nuevo'],
     ]);
   });
@@ -270,12 +320,82 @@ describe('crearClienteApi: renovación antes de vencer (F10)', () => {
   test('si la renovación anticipada es rechazada, cierra la sesión sin hacer la petición', async () => {
     const { cliente, transporte, alExpirarSesion } = armar({
       tokens: { acceso: tokenQueVenceEn(-5000), renovacion: 'renovacion-1' },
-      responder: () => respuesta(401, { codigo: 'SESION_EXPIRADA' }),
+      responder: () => respuesta(401, { codigo: 'REFRESCO_INVALIDO' }),
     });
 
     await expect(cliente.peticion('/casos')).rejects.toMatchObject({ codigo: 'SESION_EXPIRADA' });
 
     expect(alExpirarSesion).toHaveBeenCalledTimes(1);
-    expect(transporte.mock.calls.map(([url]) => url.replace(URL_BASE, ''))).toEqual([RUTA_RENOVAR]);
+    expect(transporte.mock.calls.map(([url]) => url.replace(URL_BASE, ''))).toEqual([RUTA_REFRESH]);
+  });
+});
+
+describe('crearClienteApi: sin renovar (cerrar sesión)', () => {
+  test('envía el token aunque esté por vencer, sin renovarlo antes', async () => {
+    const parte = (datos: object) => btoa(JSON.stringify(datos)).replace(/=+$/, '');
+    const porVencer = `${parte({ alg: 'HS256' })}.${parte({ exp: Math.floor((Date.now() + 10_000) / 1000) })}.firma`;
+    const { cliente, transporte } = armar({
+      tokens: { acceso: porVencer, renovacion: 'renovacion-1' },
+      responder: () => respuesta(204),
+    });
+
+    await cliente.peticion('/auth/logout', { metodo: 'POST', sinRenovar: true });
+
+    expect(transporte.mock.calls.map(([url, init]) => [url.replace(URL_BASE, ''), init.headers.Authorization])).toEqual([
+      ['/auth/logout', `Bearer ${porVencer}`],
+    ]);
+  });
+
+  test('con un 401 no renueva ni repite, y no cierra la sesión por su cuenta', async () => {
+    const { cliente, transporte, alExpirarSesion } = armar({
+      tokens: TOKENS,
+      responder: () => respuesta(401, { codigo: 'NO_AUTENTICADO' }),
+    });
+
+    await expect(cliente.peticion('/auth/logout', { metodo: 'POST', sinRenovar: true })).rejects.toMatchObject({
+      codigo: 'NO_AUTENTICADO',
+    });
+
+    expect(transporte).toHaveBeenCalledTimes(1);
+    expect(alExpirarSesion).not.toHaveBeenCalled();
+  });
+});
+
+describe('crearClienteApi: renovar al abrir la app', () => {
+  test('sin sesión guardada no pregunta nada al servidor', async () => {
+    const { cliente, transporte } = armar();
+
+    await expect(cliente.renovarAlAbrir()).resolves.toBe('sin-sesion');
+    expect(transporte).not.toHaveBeenCalled();
+  });
+
+  test('si el refresh responde bien, guarda los tokens nuevos', async () => {
+    const { cliente, transporte, sesion } = armar({ tokens: TOKENS, responder: () => respuesta(200, REFRESH_OK) });
+
+    await expect(cliente.renovarAlAbrir()).resolves.toBe('renovada');
+    expect(transporte.mock.calls.map(([url]) => url.replace(URL_BASE, ''))).toEqual([RUTA_REFRESH]);
+    expect(sesion()).toEqual(TOKENS_NUEVOS);
+  });
+
+  test('si el servidor rechaza la sesión (401), la cierra', async () => {
+    const { cliente, alExpirarSesion } = armar({
+      tokens: TOKENS,
+      responder: () => respuesta(401, { codigo: 'SESION_REVOCADA' }),
+    });
+
+    await expect(cliente.renovarAlAbrir()).resolves.toBe('cerrada');
+    expect(alExpirarSesion).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    ['sin red', () => Promise.reject(new TypeError('Network request failed'))],
+    ['servidor caído (503)', () => respuesta(503, { codigo: 'ERROR_INTERNO' })],
+    ['demasiados intentos (429)', () => respuesta(429, { codigo: 'DEMASIADOS_INTENTOS' })],
+  ])('%s: conserva la sesión guardada', async (_caso, responder) => {
+    const { cliente, alExpirarSesion, sesion } = armar({ tokens: TOKENS, responder });
+
+    await expect(cliente.renovarAlAbrir()).resolves.toBe('pendiente');
+    expect(alExpirarSesion).not.toHaveBeenCalled();
+    expect(sesion()).toEqual(TOKENS);
   });
 });
