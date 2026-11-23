@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { type Entorno, ENTORNO } from '../config/entorno';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './guardia/jwt-auth.guard';
 import { TokensService } from './tokens.service';
 
 @Module({
@@ -22,7 +23,7 @@ import { TokensService } from './tokens.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, TokensService],
-  exports: [TokensService],
+  providers: [AuthService, TokensService, JwtAuthGuard],
+  exports: [TokensService, JwtAuthGuard],
 })
 export class AuthModule {}

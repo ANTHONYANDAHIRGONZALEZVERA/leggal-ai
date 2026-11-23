@@ -6,16 +6,21 @@ import type { ContextoPeticion } from '../comun/peticion/contexto-peticion';
 import { type Entorno, ENTORNO } from '../config/entorno';
 import { Prisma, type Sesion, type Usuario } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import type { SesionActual } from './guardia/sesion-actual';
 import type {
   DatosLogin,
   DatosRefresco,
   DatosRegistro,
   RespuestaSesion,
+  RespuestaYo,
 } from './esquemas';
 import { hashRefresco, TokensService } from './tokens.service';
 import { aUsuarioApi } from './usuario-api';
 
 type ClienteBd = PrismaService | Prisma.TransactionClient;
+
+/** Membresías que /auth/me muestra (contrato): ni rechazadas ni suspendidas. */
+const ESTADOS_VISIBLES = ['activa', 'en_espera'] as const;
 type SesionConUsuario = Sesion & { usuario: Usuario };
 
 // Errores del contrato que se repiten en varios flujos.
@@ -259,6 +264,56 @@ export class AuthService {
       venceEn: this.tokens.segundosAcceso,
       usuario: aUsuarioApi(usuario),
     };
+  }
+
+  /**
+   * B11, GET /auth/me: la persona y sus empresas. Las membresías se buscan por
+   * el usuario del token (nunca por un id que mande la app), así cada quien
+   * ve solo las suyas. Solo activas y en espera, como pide el contrato.
+   */
+  async obtenerYo(sesion: SesionActual): Promise<RespuestaYo> {
+    const usuario =
+      sesion.usuario ??
+      (await this.prisma.usuario.findUniqueOrThrow({
+        where: { id: sesion.usuarioId },
+      }));
+    const membresias = await this.prisma.membresia.findMany({
+      where: {
+        usuarioId: sesion.usuarioId,
+        estado: { in: [...ESTADOS_VISIBLES] },
+      },
+      include: { empresa: true, rol: true },
+      orderBy: { creadoEn: 'asc' },
+    });
+    return {
+      usuario: aUsuarioApi(usuario),
+      empresaActivaId: sesion.empresaId,
+      empresas: membresias.map((m) => ({
+        id: m.empresa.id,
+        nombre: m.empresa.nombre,
+        tipo: m.empresa.tipo,
+        rol: m.rol.nombre,
+        // El filtro de arriba garantiza que es uno de los dos visibles.
+        estadoMembresia: m.estado as (typeof ESTADOS_VISIBLES)[number],
+      })),
+    };
+  }
+
+  /**
+   * B11, POST /auth/logout: revoca la sesión del token (toda la familia del
+   * sid). Las otras sesiones de la persona siguen abiertas. Idempotente: si ya
+   * estaba cerrada, no cambia nada y la ruta responde 204 igual.
+   */
+  async cerrarSesion(sesion: SesionActual): Promise<void> {
+    await this.prisma.sesion.updateMany({
+      // usuarioId además del sid: un sid ajeno no cierra nada.
+      where: {
+        familiaId: sesion.sesionId,
+        usuarioId: sesion.usuarioId,
+        revocadoEn: null,
+      },
+      data: { revocadoEn: new Date() },
+    });
   }
 
   private async revocarFamilia(familiaId: string, ahora: Date): Promise<void> {

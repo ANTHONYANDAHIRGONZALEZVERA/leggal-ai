@@ -11,9 +11,12 @@ import { type CodigoError, type CuerpoError, ErrorApi } from './error-api';
 
 // Errores de Nest o de Express (ruta inexistente, JSON mal formado, límite de
 // peticiones...) que no pasan por ErrorApi: se traducen a un código estable.
+// Un 400 genérico (por ejemplo, el JSON mal formado que rechaza el lector del
+// cuerpo) es SOLICITUD_INVALIDA y no VALIDACION: el contrato reserva
+// VALIDACION para cuando hay campos que marcar en el formulario.
 const CODIGO_POR_ESTADO: Partial<Record<number, [CodigoError, string]>> = {
   [HttpStatus.BAD_REQUEST]: [
-    'VALIDACION',
+    'SOLICITUD_INVALIDA',
     'La petición no tiene un formato válido.',
   ],
   [HttpStatus.UNAUTHORIZED]: [

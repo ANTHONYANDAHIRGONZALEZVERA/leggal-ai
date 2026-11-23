@@ -26,7 +26,7 @@ que solo sirven para pruebas. Así corren igual en tu PC y en CI.
 ## Casos probados
 
 Por módulo:
-- [Autenticación (B05, B06 y B07)](backend/auth.md): register, login y refresh.
+- [Autenticación (B05, B06, B07 y B11)](backend/auth.md): register, login, refresh, me, logout y el guard del token.
 
 ### Infraestructura común (B05, PR de infraestructura) — 2026-11-20
 
@@ -44,7 +44,7 @@ E2E (`test/infraestructura.e2e-spec.ts`, con la app completa):
 |---|---|---|
 | `ErrorApi` lanzado en un controlador | `409 { codigo: "CORREO_EN_USO", mensaje, campos: null }` | ✅ |
 | Cuerpo inválido con Zod | `400 VALIDACION` con `campos` por campo, incluido el que sobra | ✅ |
-| JSON mal formado | `400 VALIDACION` | ✅ |
+| JSON mal formado | `400 SOLICITUD_INVALIDA` con `campos: null` (desde B11; antes `VALIDACION`) | ✅ |
 | Ruta inexistente | `404 NO_ENCONTRADO` | ✅ |
 | Error inesperado | `500 ERROR_INTERNO` sin el detalle interno en la respuesta | ✅ |
 | Cabeceras de la app | `dispositivo` y `versionApp` leídos | ✅ |

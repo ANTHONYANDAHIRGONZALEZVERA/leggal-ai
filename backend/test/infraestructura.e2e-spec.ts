@@ -94,13 +94,18 @@ describe('Infraestructura común (e2e)', () => {
     });
   });
 
-  it('un JSON mal formado responde 400 VALIDACION', async () => {
+  it('un JSON mal formado responde 400 SOLICITUD_INVALIDA sin campos', async () => {
     const respuesta = await request(app.getHttpServer())
       .post('/prueba/validar')
       .set('Content-Type', 'application/json')
       .send('{"correo": ')
       .expect(400);
-    expect(respuesta.body.codigo).toBe('VALIDACION');
+    // VALIDACION siempre trae campos; un cuerpo ilegible no tiene campos que marcar.
+    expect(respuesta.body).toEqual({
+      codigo: 'SOLICITUD_INVALIDA',
+      mensaje: 'La petición no tiene un formato válido.',
+      campos: null,
+    });
   });
 
   it('una ruta inexistente responde 404 NO_ENCONTRADO', async () => {

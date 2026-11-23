@@ -73,3 +73,23 @@ export const esquemaRespuestaSesion = z.object({
 
 export type UsuarioApi = z.infer<typeof esquemaUsuarioApi>;
 export type RespuestaSesion = z.infer<typeof esquemaRespuestaSesion>;
+
+/** Empresa de la persona en GET /auth/me (membresías activas o en espera). */
+export const esquemaEmpresaYo = z.object({
+  id: z.uuid(),
+  nombre: z.string(),
+  tipo: z.enum(['empresa', 'personal']),
+  rol: z.string().meta({ example: 'Administrador' }),
+  estadoMembresia: z.enum(['activa', 'en_espera']),
+});
+
+export const esquemaRespuestaYo = z.object({
+  usuario: esquemaUsuarioApi,
+  empresaActivaId: z
+    .uuid()
+    .nullable()
+    .meta({ description: 'Igual al tid del token' }),
+  empresas: z.array(esquemaEmpresaYo),
+});
+
+export type RespuestaYo = z.infer<typeof esquemaRespuestaYo>;
