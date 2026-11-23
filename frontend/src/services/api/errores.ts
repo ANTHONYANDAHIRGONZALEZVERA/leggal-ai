@@ -25,6 +25,14 @@ const mensajes: Record<string, string> = {
   USUARIO_INACTIVO: 'Tu cuenta está suspendida. Escríbenos si crees que es un error.',
   DEMASIADOS_INTENTOS: 'Hiciste demasiados intentos. Espera unos minutos e inténtalo de nuevo.',
   ERROR_INTERNO: 'El servidor tuvo un problema. Inténtalo en unos minutos.',
+  // Empresas y códigos de invitación (B35 y B39).
+  CODIGO_INVALIDO: 'Ese código no existe. Revisa que esté bien escrito.',
+  CODIGO_VENCIDO: 'Ese código ya no sirve. Pide uno nuevo al administrador de tu empresa.',
+  YA_ES_MIEMBRO: 'Ya eres parte de esa empresa.',
+  SOLICITUD_EXISTENTE: 'Ya pediste unirte a esa empresa. Espera la respuesta del administrador.',
+  RUC_EN_USO: 'Ya hay una empresa registrada con este RUC.',
+  // Onboarding (B34): otra persona tomó el @usuario mientras se llenaban los pasos.
+  USUARIO_EN_USO: 'Otra persona acaba de tomar tu nombre de usuario. Vuelve al paso 1 y elige otro.',
 };
 
 export class ErrorApi extends Error {

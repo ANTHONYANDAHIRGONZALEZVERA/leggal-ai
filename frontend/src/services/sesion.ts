@@ -15,6 +15,8 @@ type EstadoSesion = {
   /** Guarda la respuesta de login, registro o refresh: tokens y usuario al día. */
   iniciar: (sesion: RespuestaSesionApi) => void;
   completarOnboarding: () => void;
+  /** Reemplaza los datos de la persona (por ejemplo, al terminar el onboarding). */
+  actualizarUsuario: (usuario: Usuario) => void;
   cerrar: () => void;
 };
 
@@ -34,6 +36,7 @@ export const useSesion = create<EstadoSesion>()(
         set({ usuario, tokens: { acceso: tokenAcceso, renovacion: tokenRefresco } }),
       completarOnboarding: () =>
         set(({ usuario }) => ({ usuario: usuario && { ...usuario, onboardingCompleto: true } })),
+      actualizarUsuario: (usuario) => set({ usuario }),
       cerrar: () => set({ usuario: null, tokens: null }),
     }),
     {

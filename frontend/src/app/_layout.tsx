@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 
 import { crearClienteConsultas } from '@/services/consultas';
+import { marcarAppAbierta } from '@/services/entrada';
 import { useAcceso, useSesionLeida } from '@/services/sesion';
 import { useSesionAlDia } from '@/services/sesion-al-abrir';
 import { colors, fuentes } from '@/theme';
@@ -43,6 +44,11 @@ export default function RootLayout() {
 // manda a su lugar (app/index.tsx). Por eso Login y Registro no navegan.
 function Navegacion() {
   const acceso = useAcceso();
+  // Quien ya estuvo dentro y sale va a "Bienvenido de nuevo", no al Splash
+  // (services/entrada.ts).
+  useEffect(() => {
+    if (acceso !== 'invitado') marcarAppAbierta();
+  }, [acceso]);
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.fondo } }}>

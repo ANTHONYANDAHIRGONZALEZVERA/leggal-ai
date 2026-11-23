@@ -36,6 +36,63 @@ que manda la app:
 - Con `colaborativo` sigue al 4/5 "Conéctate a tu empresa" (F33): unirse con
   código o crear una empresa.
 
+## Paso 4/5: empresa (F33)
+Solo en modo `colaborativo`. Las rutas (B35 y B39) están en
+[`empresas-borrador-frontend.md`](empresas-borrador-frontend.md).
+- **Unirme con código:** la solicitud se crea en el momento (no al final).
+  Desde "Solicitud enviada" la persona puede "Continuar en modo personal": el
+  `modo` sigue siendo `colaborativo` y la solicitud queda pendiente.
+- **Crear empresa:** se crea en el momento (`POST /tenants`) y la app guarda la
+  sesión nueva, cuyo token ya trae la empresa.
+- **Al final (F31):** si la persona es `colaborativo` pero no creó empresa ni
+  la aprobaron todavía, se crea igual su espacio personal (ver el 5/5) para que
+  tenga dónde trabajar mientras espera.
+
+## Paso 5/5: preferencias y envío final (F31)
+- `usos` (al menos uno, sin repetidos y en este orden): `resumir_documentos`,
+  `controlar_plazos`, `organizar_casos`, `consultar_normativa`,
+  `redactar_escritos`, `informes_clientes`.
+- `canal`: `texto`, `voz` o `ambos`.
+- `notificaciones`: `{ plazos, resumenDiario }` (booleanos). Si alguno es
+  `true`, la persona ya dio el permiso del sistema. Los avisos push están en
+  [`notificaciones-propuesta.md`](notificaciones-propuesta.md).
+
+Al tocar "Empezar":
+1. **Espacio personal** si el modo es `personal`, o si es `colaborativo` sin
+   empresa creada ni solicitud aprobada: `POST /tenants` con
+   `{ "tipo": "personal" }`. **Debe ser idempotente**: si ya existe, responde
+   **200** con el mismo espacio (por si el paso 2 falla y la persona reintenta).
+   Responde como la creación de empresa: sesión nueva con su `tid` y
+   `empresa` con `tipo: personal`.
+2. **`PATCH /users/me/onboarding`** (B34):
+   ```json
+   {
+     "nombreVisible": "Andrea Ruiz",
+     "nombreUsuario": "andrea.r",
+     "perfilProfesional": { "rol": "abogado", "materias": ["laboral"], "matricula": "17-2015-123" },
+     "modo": "personal",
+     "preferencias": {
+       "usos": ["resumir_documentos"],
+       "canal": "ambos",
+       "notificaciones": { "plazos": true, "resumenDiario": false }
+     }
+   }
+   ```
+   - **200** → `{ "usuario": UsuarioApi }` con `onboardingCompleto: true`; la
+     app lo guarda y la navegación lleva a Inicio.
+   - **409** `USUARIO_EN_USO`: otra persona tomó el @usuario mientras tanto.
+   - **400** `VALIDACION` con `campos`.
+- La foto de perfil todavía no se envía (no hay endpoint:
+  [`foto-perfil-propuesta.md`](foto-perfil-propuesta.md)).
+
+### Cambiar las preferencias después (Ajustes, fuera de estas dos semanas)
+Lo que se elige en el 5/5 (usos, canal y notificaciones) se debe poder cambiar
+desde Ajustes. Propuesta para cuando se haga esa pantalla:
+- `GET /users/me/preferencias` → **200** `{ "preferencias": { usos, canal, notificaciones } }`.
+- `PATCH /users/me/preferencias` con solo lo que cambia, por ejemplo
+  `{ "canal": "voz" }`. Mismas reglas que en el onboarding. **200** con las
+  preferencias completas; **400** `VALIDACION` con `campos`.
+
 ## `GET /usuarios/disponible?usuario=<texto>` (F30)
 Revisa si un @usuario está libre. La app solo consulta textos con formato
 válido (3 a 30 caracteres; letras minúsculas, números, punto y guion bajo;

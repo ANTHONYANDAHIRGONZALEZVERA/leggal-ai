@@ -21,9 +21,23 @@ const trazos = {
   maletin: { d: 'M4 8h16v11H4zM9 8V5h6v3M4 13h16', grosor: 2 },
   birrete: { d: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2 9 2 12 0v-5', grosor: 2 },
   puntos: { d: 'M5 12h.01M12 12h.01M19 12h.01', grosor: 3 },
-  candado: { d:'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3', grosor: 2 },
+  // Usos del onboarding 5/5.
+  documento: { d: 'M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h4', grosor: 2 },
+  carpeta: { d: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', grosor: 2 },
+  lupa: { d: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4', grosor: 2 },
+  lapiz: { d: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4', grosor: 2 },
+  grafico: { d: 'M5 20V10M12 20V4M19 20v-7', grosor: 2 },
+  chispa: { d: 'M12 2l2.2 6.1L20 10l-5.8 2-2.2 6-2.2-6L4 10l5.8-1.9z', grosor: 2 },
+  // Solicitud enviada (4/5).
+  relojArena: { d: 'M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9', grosor: 2 },
+  reloj: { d: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2', grosor: 2 },
+  cerrar: { d: 'M6 6l12 12M18 6L6 18', grosor: 2.4 },
+  campana: { d: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4', grosor: 2 },
+  candado: { d: 'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3', grosor: 2 },
   escudo: { d: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', grosor: 2 },
-  balanza: { d:'M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0zM8 21h8', grosor: 1.8 },
+  // Balanza del diseño con los platillos en curvas (c) en vez de arcos (a): en
+  // el teléfono el trazo con arcos no se dibujaba.
+  balanza: { d: 'M12 3v18M5 7h14M7 7l-3 7c0 4 6 4 6 0zM17 7l-3 7c0 4 6 4 6 0zM8 21h8', grosor: 1.8 },
 } as const;
 
 // Logo de Google: cuatro rellenos de color en un viewBox 48×48.

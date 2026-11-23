@@ -1,7 +1,7 @@
 import { screen, userEvent, waitFor } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { Linking } from 'react-native';
+import { BackHandler, Linking } from 'react-native';
 
 import Perfil from '@/app/(onboarding)/perfil';
 import { iniciarSesion } from '@/features/auth/api';
@@ -43,7 +43,11 @@ jest.mock('expo-image-manipulator', () => {
   return { SaveFormat: { JPEG: 'jpeg' }, ImageManipulator: { manipulate: () => contexto } };
 });
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
-jest.mock('expo-router', () => ({ router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => false) } }));
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => false) },
+  // Como si la pantalla estuviera al frente.
+  useFocusEffect: (efecto: () => void | (() => void)) => require('react').useEffect(efecto, [efecto]),
+}));
 
 // Cuenta de prueba con el onboarding pendiente, con su token real de la API simulada.
 beforeEach(async () => {
@@ -75,6 +79,38 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
     expect(await screen.findByText('@bruno.diaz')).toBeOnTheScreen();
     expect(screen.getByText('@bdiaz.legal')).toBeOnTheScreen();
     expect(screen.getByText('@brunodiaz')).toBeOnTheScreen();
+  });
+
+  test('mientras llegan las sugerencias muestra su lugar (carga esqueleto) y luego las cambia por ellas', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), 'Bruno Díaz');
+
+    expect(screen.getByLabelText('Buscando sugerencias de nombre de usuario')).toBeOnTheScreen();
+    expect(await screen.findByText('@bruno.diaz')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+  });
+
+  test('si el servidor no tiene sugerencias, la carga se quita y no queda nada', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), '12'); // sin letras: no hay con qué armar @usuarios
+    expect(screen.getByLabelText('Buscando sugerencias de nombre de usuario')).toBeOnTheScreen();
+
+    await waitFor(() => expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen());
+    expect(screen.queryByLabelText('Sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+  });
+
+  test('con una sola letra no sugiere ni muestra la carga', async () => {
+    const user = userEvent.setup();
+    await renderizar(<Perfil />);
+
+    await user.type(campoNombre(), 'B');
+
+    expect(screen.queryByLabelText('Buscando sugerencias de nombre de usuario')).not.toBeOnTheScreen();
+    expect(screen.queryByLabelText('Sugerencias de nombre de usuario')).not.toBeOnTheScreen();
   });
 
   test('las sugerencias cambian si cambia el nombre', async () => {
@@ -196,6 +232,16 @@ describe('Onboarding 1/5: ¿Cómo te llamamos?', () => {
     await user.press(screen.getByLabelText('Salir y volver al inicio de sesión'));
 
     await waitFor(() => expect(useSesion.getState().tokens).toBeNull());
+  });
+
+  test('el "atrás" del teléfono también sale (y no deja que el sistema cierre la app)', async () => {
+    const escuchar = jest.spyOn(BackHandler, 'addEventListener');
+    await renderizar(<Perfil />);
+    const atras = escuchar.mock.calls.find(([evento]) => evento === 'hardwareBackPress')?.[1] as (() => boolean) | undefined;
+
+    expect(atras?.()).toBe(true);
+    await waitFor(() => expect(useSesion.getState().tokens).toBeNull());
+    escuchar.mockRestore();
   });
 });
 
