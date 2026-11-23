@@ -31,6 +31,7 @@
 | 2026-11-14 | expo-image | 58.0.18 | Imágenes con caché | Tony |
 | 2026-11-21 | expo-image-manipulator | 58.0.16 | Recortar, comprimir y quitar metadatos (EXIF/GPS) de la foto de perfil (F09) | Tony |
 | 2026-11-21 | expo-image-picker | 58.0.10 | Elegir la foto de perfil de la galería o tomarla con la cámara (F09) | Tony |
+| 2026-11-21 | expo-notifications | 58.1.9 | Pedir permiso de avisos y avisar cuando aprueban la solicitud a una empresa (F33) | Tony |
 | 2026-11-14 | expo-linking | 58.0.17 | Enlaces profundos (lo usa expo-router) | Tony |
 | 2026-11-14 | expo-router | 58.0.31 | Navegación por archivos | Tony |
 | 2026-11-14 | expo-secure-store | 58.0.3 | Guardar tokens de sesión cifrados (F04) | Tony |
