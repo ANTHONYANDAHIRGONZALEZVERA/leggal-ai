@@ -25,6 +25,9 @@ que solo sirven para pruebas. Así corren igual en tu PC y en CI.
 
 ## Casos probados
 
+Por módulo:
+- [Autenticación (B05, B06 y B07)](backend/auth.md): register, login y refresh.
+
 ### Infraestructura común (B05, PR de infraestructura) — 2026-11-20
 
 Unitarias:

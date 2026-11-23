@@ -67,10 +67,12 @@ Quitados en F04 (solo los usaba el ejemplo de la plantilla): expo-device, expo-g
 |---|---|---|---|---|
 | 2026-11-20 | @nestjs/common | 12.5.0 | Decoradores, módulos y utilidades base de NestJS | Dependabot (#24) |
 | 2026-11-20 | @nestjs/core | 12.5.0 | Núcleo de NestJS (inyección de dependencias y arranque) | Dependabot (#24) |
+| 2026-11-22 | @nestjs/jwt | 12.0.5 | Firmar y verificar el token de acceso (JWT de 15 minutos) (B06) | Joel |
 | 2026-11-20 | @nestjs/platform-express | 12.5.0 | Servidor HTTP de NestJS sobre Express | Dependabot (#24) |
 | 2026-11-17 | @nestjs/swagger | 12.1.2 | Documentación interactiva de la API en `/docs`, solo en desarrollo (B04) | Joel |
 | 2026-11-20 | @prisma/adapter-pg | 7.10.1 | Conectar Prisma 7 a PostgreSQL mediante pg; misma versión que Prisma (B05 infraestructura) | Joel |
 | 2026-11-08 | @prisma/client | 7.10.1 | Cliente de Prisma para consultar PostgreSQL | Tony |
+| 2026-11-22 | argon2 | 0.45.2 | Cifrar y verificar contraseñas con argon2id; trae binarios precompilados para Windows y Linux (B05) | Joel |
 | 2026-11-20 | pg | 8.23.1 | Controlador de PostgreSQL que usa el adaptador de Prisma (B05 infraestructura) | Joel |
 | 2026-11-08 | reflect-metadata | 0.2.2 | Metadatos de decoradores; lo exige NestJS | Tony |
 | 2026-11-08 | rxjs | 7.8.2 | Flujos reactivos; lo exige NestJS (interceptores y guards) | Tony |

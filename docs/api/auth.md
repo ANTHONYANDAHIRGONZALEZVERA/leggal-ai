@@ -75,8 +75,11 @@ Reglas:
    compartir el resultado entre las peticiones que esperan.
 4. En red móvil la respuesta del refresh se puede perder después de que el
    servidor ya rotó el token, y la app reenviaría el anterior. Para que eso no
-   cierre todas las sesiones, se propone una ventana de gracia corta (ver
-   [Pendiente de confirmar](#pendiente-de-confirmar-en-la-revisión)).
+   cierre todas las sesiones, hay una **ventana de gracia de 30 segundos**:
+   si un refresh ya usado llega dentro de los 30 s siguientes a su rotación,
+   el servidor no revoca nada; emite un par nuevo para la misma familia
+   (mismo `sid`) y deja sin efecto el par que se perdió. No exige que
+   `X-Dispositivo` coincida. Pasados los 30 s, se aplica el punto 2.
 
 ## Formato de error estándar
 
@@ -99,7 +102,7 @@ Todas las respuestas con error (4xx y 5xx) tienen esta forma:
 | `mensaje` | texto | Frase en español que se puede mostrar a la persona. |
 | `campos` | objeto o `null` | Solo en errores de validación: nombre del campo → mensaje. En los demás errores es `null`. |
 
-Códigos de la semana 1:
+Códigos del formato de error. El backend los usa en todas las rutas, no solo en las de autenticación:
 
 | HTTP | `codigo` | Cuándo |
 |---|---|---|
@@ -107,9 +110,12 @@ Códigos de la semana 1:
 | 401 | `NO_AUTENTICADO` | Falta el token de acceso, está mal formado o venció. La app intenta un refresh. |
 | 401 | `CREDENCIALES_INVALIDAS` | Correo o contraseña incorrectos. Es el mismo mensaje en los dos casos, para no revelar qué correos existen. |
 | 401 | `REFRESCO_INVALIDO` | El refresh no existe o venció. La app vuelve al login. |
-| 401 | `SESION_REVOCADA` | La sesión fue cerrada, o se reutilizó un refresh ya usado. La app vuelve al login. |
+| 401 | `SESION_REVOCADA` | La sesión fue cerrada, se reutilizó un refresh ya usado o la cuenta se suspendió mientras la sesión estaba abierta. La app vuelve al login. |
 | 403 | `USUARIO_INACTIVO` | La cuenta está suspendida o dada de baja. |
+| 403 | `SIN_PERMISO` | La persona inició sesión, pero su rol no tiene permiso para esa acción. La app muestra "No tienes permiso". |
+| 404 | `NO_ENCONTRADO` | La ruta o el recurso no existe (o pertenece a otra empresa: el backend no distingue los dos casos). |
 | 409 | `CORREO_EN_USO` | Registro con un correo que ya tiene cuenta. |
+| 4xx | `SOLICITUD_INVALIDA` | Cualquier otro error 4xx que no tenga un código propio (por ejemplo 405 o 415). La app muestra el mensaje genérico. |
 | 429 | `DEMASIADOS_INTENTOS` | Se superó el límite de peticiones. La respuesta trae la cabecera `Retry-After` en segundos. |
 | 500 | `ERROR_INTERNO` | Error no esperado. El mensaje es genérico y no trae detalles del servidor. |
 
@@ -483,13 +489,7 @@ por pasar por una zona sin señal.
   acepta por facilidad de uso, y el límite de 5 registros por hora por IP reduce
   el riesgo. Revisarlo en B48 (OWASP ASVS).
 - **Límites:** los números de cada ruta son una propuesta inicial para B12.
-- **Ventana de gracia del refresh (B07):** si la respuesta de un refresh se
-  pierde en la red móvil, la app reenvía el token que el servidor acaba de
-  rotar, y hoy eso se tomaría como robo y cerraría todas las sesiones. La
-  propuesta: si un refresh ya usado llega dentro de los **30 segundos**
-  siguientes a su rotación y desde la misma familia de sesión, no se revoca
-  nada: el servidor emite un par nuevo para esa familia y anula el que se
-  perdió. No puede reenviar el par vigente, porque solo guarda su hash. Pasada
-  la ventana, se aplica la regla de robo de siempre. Falta decidir
-  el número exacto y si se exige el mismo dispositivo. El modelo ya tiene lo
-  necesario: `sesiones.usado_en` y `sesiones.familia_id`.
+- **Ventana de gracia del refresh (B07):** decidida e implementada en B07: 30 segundos
+  dentro de la misma familia, sin exigir el mismo dispositivo (ver el punto 4
+  de [Rotación y robo](#rotación-y-robo-del-refresh-token)). Se configura con
+  `REFRESCO_GRACIA_SEGUNDOS`.
