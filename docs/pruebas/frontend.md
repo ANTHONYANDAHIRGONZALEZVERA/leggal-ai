@@ -586,6 +586,9 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
 - 21 nov 2026 (Inicio): contar una solicitud pendiente como espacio activo
   (falló 1), decir siempre "para tu despacho" (1), avatar sin destino (1),
   `/auth/me` sin empresas (12) y un aviso que no se va (1). Luego se restauró.
+- 24 nov 2026 (Inicio sobre `main`, antes de la PR, en copia limpia):
+  ignorar la empresa de la sesión (falló 1) y no pausar nunca las animaciones
+  (1). Luego se restauró.
 - 21 nov 2026 (salir sin pasar por el Splash): volver siempre al Splash
   (fallaron 3), dar la app por abierta sin haber entrado (1) y que el atrás del
   teléfono no saliera (1). Luego se restauró.
