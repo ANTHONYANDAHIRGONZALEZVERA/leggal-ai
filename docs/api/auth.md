@@ -70,9 +70,14 @@ Reglas:
 2. Si llega un refresh **ya usado**, se toma como robo: se revocan **todas** las
    sesiones de esa persona y la respuesta es `401 SESION_REVOCADA`. La app
    borra la sesión local y vuelve al login.
-3. Si dos peticiones intentan renovar a la vez, la segunda caería en el punto 2.
-   Por eso el cliente de la app debe hacer **un solo refresh a la vez** y
-   compartir el resultado entre las peticiones que esperan.
+3. **El cliente nunca debe enviar dos `POST /auth/refresh` a la vez con el
+   mismo token.** Tiene que serializarlos: un solo refresh en curso, cuyo
+   resultado comparten todas las peticiones que esperan, y guardar siempre el
+   **último** par recibido. Si dos refresh simultáneos llegan al servidor, cada
+   uno recibe un par distinto (el segundo entra por la ventana de gracia del
+   punto 4 y deja sin efecto el primero). Si después la app usa el par que
+   quedó sin efecto, pasados los 30 s se detecta como reutilización (punto 2)
+   y se **revocan todas las sesiones** de la persona.
 4. En red móvil la respuesta del refresh se puede perder después de que el
    servidor ya rotó el token, y la app reenviaría el anterior. Para que eso no
    cierre todas las sesiones, hay una **ventana de gracia de 30 segundos**:
@@ -107,7 +112,9 @@ Códigos del formato de error. El backend los usa en todas las rutas, no solo en
 | HTTP | `codigo` | Cuándo |
 |---|---|---|
 | 400 | `VALIDACION` | Falta un campo, sobra uno o tiene un formato inválido. Trae `campos`. |
-| 401 | `NO_AUTENTICADO` | Falta el token de acceso, está mal formado o venció. La app intenta un refresh. |
+| 401 | `NO_AUTENTICADO` | No llegó la cabecera `Authorization: Bearer <token>` (o no tiene ese formato). |
+| 401 | `TOKEN_INVALIDO` | El token de acceso no tiene una firma válida (HS256), está mal formado o su contenido no es el esperado. La app intenta un refresh. |
+| 401 | `TOKEN_EXPIRADO` | El token de acceso venció (15 minutos). La app intenta un refresh. |
 | 401 | `CREDENCIALES_INVALIDAS` | Correo o contraseña incorrectos. Es el mismo mensaje en los dos casos, para no revelar qué correos existen. |
 | 401 | `REFRESCO_INVALIDO` | El refresh no existe o venció. La app vuelve al login. |
 | 401 | `SESION_REVOCADA` | La sesión fue cerrada, se reutilizó un refresh ya usado o la cuenta se suspendió mientras la sesión estaba abierta. La app vuelve al login. |
@@ -115,7 +122,7 @@ Códigos del formato de error. El backend los usa en todas las rutas, no solo en
 | 403 | `SIN_PERMISO` | La persona inició sesión, pero su rol no tiene permiso para esa acción. La app muestra "No tienes permiso". |
 | 404 | `NO_ENCONTRADO` | La ruta o el recurso no existe (o pertenece a otra empresa: el backend no distingue los dos casos). |
 | 409 | `CORREO_EN_USO` | Registro con un correo que ya tiene cuenta. |
-| 4xx | `SOLICITUD_INVALIDA` | Cualquier otro error 4xx que no tenga un código propio (por ejemplo 405 o 415). La app muestra el mensaje genérico. |
+| 4xx | `SOLICITUD_INVALIDA` | Cualquier otro error 4xx sin código propio, por ejemplo un **cuerpo que no es JSON válido** (400), 405 o 415. Lleva `campos: null`: `VALIDACION` se usa solo cuando hay campos que marcar. La app muestra el mensaje genérico. |
 | 429 | `DEMASIADOS_INTENTOS` | Se superó el límite de peticiones. La respuesta trae la cabecera `Retry-After` en segundos. |
 | 500 | `ERROR_INTERNO` | Error no esperado. El mensaje es genérico y no trae detalles del servidor. |
 
@@ -355,7 +362,11 @@ Revoca la sesión actual (la del `sid` del token). Las demás sesiones de la
 persona siguen abiertas. Para cerrarlas está `POST /auth/logout-others`
 (semana 2, pantalla Seguridad).
 
-**Protegida:** sí.
+**Protegida:** sí, pero **acepta un `tokenAcceso` vencido** siempre que su
+firma sea válida (HS256) y su contenido tenga la forma esperada. Así la app
+puede cerrar sesión aunque el token haya vencido hace horas, sin tener que
+renovarlo antes: igual se revocan la sesión y su `tokenRefresco`. Las demás
+rutas protegidas siguen respondiendo `401 TOKEN_EXPIRADO` con un token vencido.
 
 ### Petición
 
@@ -370,11 +381,14 @@ Sin cuerpo.
 
 ### Respuestas
 
-**204 No Content**: sesión cerrada. Es idempotente: si la sesión ya estaba
-revocada, también responde 204.
+**204 No Content**: sesión cerrada (se revoca la familia completa del `sid`,
+así ningún refresh de esa sesión vuelve a servir). Es idempotente: si la
+sesión ya estaba revocada, la cuenta está suspendida o el token de acceso
+venció, también responde 204.
 
-**401 NO_AUTENTICADO**: el token falta o venció. En ese caso la app borra la
-sesión local igual: para la persona el resultado es el mismo.
+**401 NO_AUTENTICADO o TOKEN_INVALIDO**: el token falta, tiene una firma que
+no es válida o está mal formado. Nunca responde `TOKEN_EXPIRADO`. En ese caso la app borra la sesión local igual: para la
+persona el resultado es el mismo.
 
 ---
 
@@ -437,10 +451,14 @@ Solo aparecen las membresías `activa` y `en_espera`:
 | `tipo` | `empresa` o `personal`. |
 | `estadoMembresia` | `activa` o `en_espera`. |
 
-**401 NO_AUTENTICADO**: el token falta o venció. La app intenta un refresh.
+**401 NO_AUTENTICADO, TOKEN_INVALIDO o TOKEN_EXPIRADO**: el token falta, no es
+válido o venció. La app intenta un refresh.
 
-**401 SESION_REVOCADA**: la sesión fue cerrada desde otro dispositivo. La app
-vuelve al login sin intentar refresh.
+**401 SESION_REVOCADA**: la sesión fue cerrada (logout, robo detectado o desde
+otro dispositivo), aunque el token todavía no haya vencido. La app vuelve al
+login sin intentar refresh.
+
+**403 USUARIO_INACTIVO**: la cuenta se suspendió con la sesión abierta.
 
 ---
 
@@ -456,7 +474,7 @@ Abrir app ─► ¿hay tokenRefresco guardado?
                                   mostrar "Sin conexión" y reintentar después
 
 Cada petición ─► ¿faltan < 60 s para exp? ─► refresh primero (uno solo a la vez)
-             ─► 401 NO_AUTENTICADO ─► un refresh y un solo reintento
+             ─► 401 NO_AUTENTICADO, TOKEN_INVALIDO o TOKEN_EXPIRADO ─► un refresh y un solo reintento
              ─► 401 SESION_REVOCADA o REFRESCO_INVALIDO ─► Login
 ```
 

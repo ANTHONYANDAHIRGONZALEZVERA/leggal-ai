@@ -1,5 +1,14 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
   ApiBody,
   ApiHeader,
   ApiOperation,
@@ -12,6 +21,7 @@ import {
 } from '../comun/peticion/contexto-peticion';
 import { ESQUEMA_ERROR, esquemaOpenApi } from '../comun/validacion/openapi';
 import { ValidacionZodPipe } from '../comun/validacion/validacion-zod.pipe';
+import { ESQUEMA_JWT } from '../swagger';
 import { AuthService } from './auth.service';
 import {
   type DatosLogin,
@@ -21,15 +31,19 @@ import {
   esquemaRefresco,
   esquemaRegistro,
   esquemaRespuestaSesion,
+  esquemaRespuestaYo,
   type RespuestaSesion,
+  type RespuestaYo,
 } from './esquemas';
+import { JwtAuthGuard, PermitirSesionCerrada } from './guardia/jwt-auth.guard';
+import { type SesionActual, UsuarioActual } from './guardia/sesion-actual';
 
 const SESION = esquemaOpenApi(esquemaRespuestaSesion, 'salida');
 const error = (status: number, description: string) =>
   ApiResponse({ status, description, schema: ESQUEMA_ERROR });
 
-// Rutas públicas de la semana 1 (contrato: docs/api/auth.md). /me y /logout
-// llegan con B11, junto con el guard que valida el token de acceso.
+// Rutas de autenticación (contrato: docs/api/auth.md). register, login y
+// refresh son públicas; me y logout exigen el token de acceso (JwtAuthGuard).
 @ApiTags('Autenticación')
 @ApiHeader({
   name: 'X-Dispositivo',
@@ -88,5 +102,37 @@ export class AuthController {
     @Contexto() contexto: ContextoPeticion,
   ): Promise<RespuestaSesion> {
     return this.auth.renovar(datos, contexto);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth(ESQUEMA_JWT)
+  @ApiOperation({ summary: 'Datos de la persona y sus empresas' })
+  @ApiResponse({
+    status: 200,
+    description: 'Sesión vigente',
+    schema: esquemaOpenApi(esquemaRespuestaYo, 'salida'),
+  })
+  @error(
+    401,
+    'NO_AUTENTICADO, TOKEN_INVALIDO, TOKEN_EXPIRADO o SESION_REVOCADA',
+  )
+  @error(403, 'USUARIO_INACTIVO')
+  obtenerYo(@UsuarioActual() sesion: SesionActual): Promise<RespuestaYo> {
+    return this.auth.obtenerYo(sesion);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  @PermitirSesionCerrada()
+  @ApiBearerAuth(ESQUEMA_JWT)
+  @ApiOperation({
+    summary: 'Cerrar esta sesión (las demás siguen abiertas). Idempotente.',
+  })
+  @ApiResponse({ status: 204, description: 'Sesión cerrada' })
+  @error(401, 'NO_AUTENTICADO, TOKEN_INVALIDO o TOKEN_EXPIRADO')
+  async cerrarSesion(@UsuarioActual() sesion: SesionActual): Promise<void> {
+    await this.auth.cerrarSesion(sesion);
   }
 }

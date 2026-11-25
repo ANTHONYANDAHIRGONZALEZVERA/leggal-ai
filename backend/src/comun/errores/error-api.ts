@@ -6,6 +6,8 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 export type CodigoError =
   | 'VALIDACION'
   | 'NO_AUTENTICADO'
+  | 'TOKEN_INVALIDO'
+  | 'TOKEN_EXPIRADO'
   | 'CREDENCIALES_INVALIDAS'
   | 'REFRESCO_INVALIDO'
   | 'SESION_REVOCADA'

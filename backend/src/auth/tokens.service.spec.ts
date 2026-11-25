@@ -57,3 +57,65 @@ describe('TokensService', () => {
     expect(tokens.segundosAcceso).toBe(900);
   });
 });
+
+describe('TokensService.verificarAcceso', () => {
+  const contenido = {
+    sub: '8f1c2d7a-3b4e-4f6a-9c1d-2e3f4a5b6c7d',
+    tid: null,
+    sid: 'b2a4c6e8-1d3f-4a5b-8c7d-9e0f1a2b3c4d',
+  };
+  const codigoDe = (promesa: Promise<unknown>) =>
+    promesa.then(
+      () => 'sin error',
+      (error: { codigo?: string }) => error.codigo,
+    );
+
+  it('devuelve sub, tid y sid de un token válido', async () => {
+    const token = tokens.firmarAcceso(contenido);
+    await expect(tokens.verificarAcceso(token)).resolves.toEqual(contenido);
+  });
+
+  it('TOKEN_EXPIRADO si venció', async () => {
+    const vencido = jwt.sign(contenido, { expiresIn: -10 });
+    expect(await codigoDe(tokens.verificarAcceso(vencido))).toBe(
+      'TOKEN_EXPIRADO',
+    );
+  });
+
+  it.each([
+    ['basura', 'no.es.unjwt'],
+    [
+      'firmado con otro secreto',
+      new JwtService({ secret: 'y'.repeat(32) }).sign(contenido),
+    ],
+    [
+      'alg "none" (sin firma)',
+      `${Buffer.from('{"alg":"none","typ":"JWT"}').toString('base64url')}.${Buffer.from(JSON.stringify(contenido)).toString('base64url')}.`,
+    ],
+    ['contenido con otra forma', jwt.sign({ sub: 'no-es-uuid', sid: 'x' })],
+  ])('TOKEN_INVALIDO: %s', async (_caso, token) => {
+    expect(await codigoDe(tokens.verificarAcceso(token))).toBe(
+      'TOKEN_INVALIDO',
+    );
+    // Aceptar vencidos (logout) no relaja la firma ni el algoritmo.
+    expect(
+      await codigoDe(tokens.verificarAcceso(token, { permitirVencido: true })),
+    ).toBe('TOKEN_INVALIDO');
+  });
+
+  it('con permitirVencido acepta un token vencido con firma válida (logout)', async () => {
+    const vencido = jwt.sign(contenido, { expiresIn: -3600 });
+    await expect(
+      tokens.verificarAcceso(vencido, { permitirVencido: true }),
+    ).resolves.toEqual(contenido);
+  });
+
+  it('con permitirVencido rechaza un token vencido firmado con otro secreto', async () => {
+    const falso = new JwtService({ secret: 'y'.repeat(32) }).sign(contenido, {
+      expiresIn: -10,
+    });
+    expect(
+      await codigoDe(tokens.verificarAcceso(falso, { permitirVencido: true })),
+    ).toBe('TOKEN_INVALIDO');
+  });
+});
