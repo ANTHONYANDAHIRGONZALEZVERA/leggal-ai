@@ -16,6 +16,8 @@ npm ci
 cp .env.example .env          # completar los valores
 docker compose up -d          # PostgreSQL y Redis, esperar a que estén "healthy"
 npx prisma generate
+npx prisma migrate dev        # crea las tablas
+npm run db:seed               # módulos y roles base (se puede repetir)
 npm run start:dev
 ```
 
@@ -27,6 +29,7 @@ npm run start:dev
 |---|---|
 | `npm run start:dev` | API con recarga automática |
 | `npm run build` | Compilar a `dist/` |
+| `npm run db:seed` | Cargar los 8 módulos y los 5 roles base en cada empresa (idempotente) |
 | `npm run lint` | Revisar el código con oxlint |
 | `npm run format` | Formatear con Prettier |
 | `npm test` | Pruebas unitarias (Jest) |

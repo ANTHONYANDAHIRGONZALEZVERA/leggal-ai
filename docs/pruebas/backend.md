@@ -27,6 +27,7 @@ que solo sirven para pruebas. Así corren igual en tu PC y en CI.
 
 Por módulo:
 - [Autenticación (B05, B06, B07 y B11)](backend/auth.md): register, login, refresh, me, logout y el guard del token.
+- [Roles y permisos (B08 y B09)](backend/permisos.md): seed de roles base y guard `@RequierePermiso()`.
 
 ### Infraestructura común (B05, PR de infraestructura) — 2026-11-20
 

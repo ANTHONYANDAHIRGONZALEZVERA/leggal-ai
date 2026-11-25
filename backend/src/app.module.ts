@@ -5,11 +5,12 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { FiltroErrores } from './comun/errores/filtro-errores';
 import { ConfiguracionModule } from './config/configuracion.module';
+import { PermisosModule } from './permisos/permisos.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   // ConfiguracionModule va primero: valida el entorno antes que todo lo demás.
-  imports: [ConfiguracionModule, PrismaModule, AuthModule],
+  imports: [ConfiguracionModule, PrismaModule, AuthModule, PermisosModule],
   controllers: [AppController],
   providers: [
     AppService,

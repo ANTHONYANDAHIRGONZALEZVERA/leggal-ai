@@ -15,6 +15,15 @@ export interface SesionActual {
   empresaId: string | null;
   /** Fila de `usuarios`. No está en las rutas con @PermitirSesionCerrada(). */
   usuario?: Usuario;
+  /** Membresía activa en la empresa del token. Solo en rutas con @RequierePermiso(). */
+  membresia?: MembresiaActual;
+}
+
+export interface MembresiaActual {
+  id: string;
+  rolId: string;
+  /** Clave del rol base (administrador, abogado...) o null si es un rol creado por la empresa. */
+  rolClave: string | null;
 }
 
 /**
