@@ -15,9 +15,10 @@ import type { SesionActual } from './sesion-actual';
 const PERMITIR_SESION_CERRADA = 'auth:permitirSesionCerrada';
 
 /**
- * Para rutas que deben funcionar aunque la sesión ya esté cerrada o la cuenta
- * suspendida, como /auth/logout (el contrato lo pide idempotente). Igual se
- * exige un token con firma válida y sin vencer.
+ * Para rutas que deben funcionar aunque la sesión ya esté cerrada, la cuenta
+ * suspendida o el token vencido, como /auth/logout (el contrato lo pide
+ * idempotente y la app puede cerrar sesión con un token de hace horas). Igual
+ * se exige un token con firma HS256 válida y con la forma esperada.
  */
 export const PermitirSesionCerrada = () =>
   SetMetadata(PERMITIR_SESION_CERRADA, true);
@@ -55,12 +56,16 @@ export class JwtAuthGuard implements CanActivate {
         'Inicia sesión para continuar.',
       );
     }
-    const { sub, tid, sid } = await this.tokens.verificarAcceso(token);
+    // Se lee antes de verificar: en logout también se acepta un token vencido.
+    const permitirCerrada =
+      this.reflector.getAllAndOverride<boolean>(PERMITIR_SESION_CERRADA, [
+        contexto.getHandler(),
+        contexto.getClass(),
+      ]) ?? false;
+    const { sub, tid, sid } = await this.tokens.verificarAcceso(token, {
+      permitirVencido: permitirCerrada,
+    });
 
-    const permitirCerrada = this.reflector.getAllAndOverride<boolean>(
-      PERMITIR_SESION_CERRADA,
-      [contexto.getHandler(), contexto.getClass()],
-    );
     if (permitirCerrada) {
       peticion.sesionActual = { usuarioId: sub, sesionId: sid, empresaId: tid };
       return true;

@@ -130,7 +130,7 @@ describe('JwtAuthGuard', () => {
     });
   });
 
-  it('con @PermitirSesionCerrada(): exige token válido pero no consulta la sesión', async () => {
+  it('con @PermitirSesionCerrada(): exige firma válida, acepta vencidos y no consulta la sesión', async () => {
     const { guard, findFirst } = armar(null, true);
     const { contexto, peticion } = contextoCon(`Bearer ${tokenValido()}`);
     await expect(guard.canActivate(contexto)).resolves.toBe(true);
@@ -140,6 +140,27 @@ describe('JwtAuthGuard', () => {
       sesionId: SID,
       empresaId: null,
     });
+
+    // También con un token vencido: la app puede cerrar sesión horas después.
+    const vencido = jwt.sign(
+      { sub: SUB, tid: null, sid: SID },
+      { expiresIn: -3600 },
+    );
+    const { guard: conVencido } = armar(null, true);
+    const { contexto: contextoVencido } = contextoCon(`Bearer ${vencido}`);
+    await expect(conVencido.canActivate(contextoVencido)).resolves.toBe(true);
+
+    // Pero no con una firma falsa.
+    const falso = new JwtService({ secret: 'y'.repeat(32) }).sign({
+      sub: SUB,
+      tid: null,
+      sid: SID,
+    });
+    const { guard: conFalso } = armar(null, true);
+    const { contexto: contextoFalso } = contextoCon(`Bearer ${falso}`);
+    expect(await codigoDe(conFalso.canActivate(contextoFalso))).toBe(
+      '401 TOKEN_INVALIDO',
+    );
 
     const { guard: otro } = armar(null, true);
     const { contexto: sinToken } = contextoCon();

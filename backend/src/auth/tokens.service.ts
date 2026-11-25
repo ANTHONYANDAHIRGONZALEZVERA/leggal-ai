@@ -49,11 +49,22 @@ export class TokensService {
    * Revisa firma (solo HS256, fijado en AuthModule), vencimiento y forma del
    * token de acceso. Distingue vencido de inválido porque la app reacciona
    * igual (renueva), pero el log y la auditoría necesitan saber cuál fue.
+   *
+   * `permitirVencido` es solo para cerrar sesión: si la app hace logout con
+   * un token que ya venció, la sesión y su refresh igual tienen que quedar
+   * revocados. La firma y el algoritmo se siguen exigiendo: @nestjs/jwt
+   * mezcla estas opciones con las del módulo (algorithms: ['HS256']).
    */
-  async verificarAcceso(token: string): Promise<ContenidoAcceso> {
+  async verificarAcceso(
+    token: string,
+    { permitirVencido = false }: { permitirVencido?: boolean } = {},
+  ): Promise<ContenidoAcceso> {
     let contenido: unknown;
     try {
-      contenido = await this.jwt.verifyAsync(token);
+      contenido = await this.jwt.verifyAsync(
+        token,
+        permitirVencido ? { ignoreExpiration: true } : undefined,
+      );
     } catch (error) {
       if (error instanceof TokenExpiredError) {
         throw new ErrorApi(

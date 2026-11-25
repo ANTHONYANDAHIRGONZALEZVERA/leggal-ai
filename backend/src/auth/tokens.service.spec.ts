@@ -97,5 +97,25 @@ describe('TokensService.verificarAcceso', () => {
     expect(await codigoDe(tokens.verificarAcceso(token))).toBe(
       'TOKEN_INVALIDO',
     );
+    // Aceptar vencidos (logout) no relaja la firma ni el algoritmo.
+    expect(
+      await codigoDe(tokens.verificarAcceso(token, { permitirVencido: true })),
+    ).toBe('TOKEN_INVALIDO');
+  });
+
+  it('con permitirVencido acepta un token vencido con firma válida (logout)', async () => {
+    const vencido = jwt.sign(contenido, { expiresIn: -3600 });
+    await expect(
+      tokens.verificarAcceso(vencido, { permitirVencido: true }),
+    ).resolves.toEqual(contenido);
+  });
+
+  it('con permitirVencido rechaza un token vencido firmado con otro secreto', async () => {
+    const falso = new JwtService({ secret: 'y'.repeat(32) }).sign(contenido, {
+      expiresIn: -10,
+    });
+    expect(
+      await codigoDe(tokens.verificarAcceso(falso, { permitirVencido: true })),
+    ).toBe('TOKEN_INVALIDO');
   });
 });

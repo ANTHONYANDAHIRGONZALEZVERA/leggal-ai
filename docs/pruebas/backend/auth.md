@@ -3,18 +3,18 @@
 > Contrato que se prueba: [`docs/api/auth.md`](../../api/auth.md).
 > Cómo correr las pruebas: [`docs/pruebas/backend.md`](../backend.md).
 
-Fechas: 2026-11-22 (B05–B07) y 2026-11-23 (B11) · Ramas: `feat/B05-B07-auth-tokens` y `feat/B11-auth-me-logout` · Responsable: Joel
+Fechas: 2026-11-22 (B05–B07), 2026-11-23 (B11) y 2026-11-24 (logout con token vencido) · Ramas: `feat/B05-B07-auth-tokens` y `feat/B11-auth-me-logout` · Responsable: Joel
 
 ## Resumen
 
 | Tipo | Archivo | Casos | Resultado |
 |---|---|---|---|
 | Unitarias | `src/auth/esquemas.spec.ts` | 15 | ✅ |
-| Unitarias | `src/auth/tokens.service.spec.ts` | 10 | ✅ |
+| Unitarias | `src/auth/tokens.service.spec.ts` | 12 | ✅ |
 | Unitarias | `src/auth/usuario-api.spec.ts` | 3 | ✅ |
 | Unitarias | `src/auth/guardia/jwt-auth.guard.spec.ts` (B11) | 10 | ✅ |
 | E2E (PostgreSQL real) | `test/auth.e2e-spec.ts` | 17 | ✅ |
-| E2E (PostgreSQL real) | `test/auth-sesion.e2e-spec.ts` (B11) | 16 | ✅ |
+| E2E (PostgreSQL real) | `test/auth-sesion.e2e-spec.ts` (B11) | 18 | ✅ |
 
 Las e2e usan correos únicos del dominio `@pruebas-e2e.leggal.test` y los
 borran al terminar (en cascada se borran sus sesiones y aceptaciones).
@@ -102,14 +102,16 @@ respuestas.
 |---|---|
 | `verificarAcceso` con un token válido | Devuelve `sub`, `tid` y `sid` |
 | Token vencido | `TOKEN_EXPIRADO` |
-| Basura, firma con otro secreto, `alg: "none"` o contenido con otra forma | `TOKEN_INVALIDO` |
+| Basura, firma con otro secreto, `alg: "none"` o contenido con otra forma | `TOKEN_INVALIDO`, también con `permitirVencido` |
+| `permitirVencido` (logout) con un token vencido de firma válida | Devuelve `sub`, `tid` y `sid` |
+| `permitirVencido` con un token vencido firmado con otro secreto | `TOKEN_INVALIDO` |
 | Guard sin cabecera, con otro esquema (`Basic`), `Bearer` sin token o con partes de más | `401 NO_AUTENTICADO`, sin consultar la base |
 | Guard con firma falsa | `401 TOKEN_INVALIDO`, sin consultar la base |
 | Guard con token vencido | `401 TOKEN_EXPIRADO` |
 | Sesión sin filas abiertas en la base | `401 SESION_REVOCADA`; busca por el `sid` **y** el usuario del token |
 | Cuenta suspendida | `403 USUARIO_INACTIVO` |
 | Token válido (también `bearer` en minúsculas) | Pasa y guarda la sesión para `@UsuarioActual()` |
-| `@PermitirSesionCerrada()` (logout) | Exige token válido pero no consulta la sesión |
+| `@PermitirSesionCerrada()` (logout) | Exige firma válida, acepta un token vencido y no consulta la sesión; con firma falsa, `401 TOKEN_INVALIDO` |
 
 ### E2E
 
@@ -124,6 +126,8 @@ respuestas.
 | Cuenta suspendida con la sesión abierta | `403 USUARIO_INACTIVO` | ✅ |
 | `POST /auth/logout` | `204`; el mismo token de acceso da `401 SESION_REVOCADA` **en el acto**, aunque no haya vencido; el refresh tampoco sirve | ✅ |
 | Logout después de rotar | Revoca la familia completa: el refresh rotado también da `401 SESION_REVOCADA` | ✅ |
+| Logout con token vencido (revisión de Anthony) | `/auth/me` con ese token sigue dando `401 TOKEN_EXPIRADO`; el logout da `204` y el refresh de la sesión queda en `401 SESION_REVOCADA` | ✅ |
+| Logout con token vencido y firma falsa | `401 TOKEN_INVALIDO` y la sesión sigue abierta | ✅ |
 | Logout dos veces con el mismo token | `204` las dos veces (idempotente) | ✅ |
 | Logout en un dispositivo | La sesión del otro dispositivo sigue abierta | ✅ |
 | Logout sin token | `401 NO_AUTENTICADO` | ✅ |
@@ -137,3 +141,4 @@ respuestas.
 | El guard deja de revisar si la sesión se revocó | 1 (el token sigue sirviendo después del logout) |
 | El JSON mal formado vuelve a ser `VALIDACION` | 3 (una por ruta) |
 | `/auth/me` deja de filtrar por el usuario del token | 1 (aislamiento) |
+| El logout vuelve a rechazar tokens vencidos | 1 unitaria y 1 e2e (logout con token vencido) |

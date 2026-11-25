@@ -362,7 +362,11 @@ Revoca la sesión actual (la del `sid` del token). Las demás sesiones de la
 persona siguen abiertas. Para cerrarlas está `POST /auth/logout-others`
 (semana 2, pantalla Seguridad).
 
-**Protegida:** sí.
+**Protegida:** sí, pero **acepta un `tokenAcceso` vencido** siempre que su
+firma sea válida (HS256) y su contenido tenga la forma esperada. Así la app
+puede cerrar sesión aunque el token haya vencido hace horas, sin tener que
+renovarlo antes: igual se revocan la sesión y su `tokenRefresco`. Las demás
+rutas protegidas siguen respondiendo `401 TOKEN_EXPIRADO` con un token vencido.
 
 ### Petición
 
@@ -379,10 +383,11 @@ Sin cuerpo.
 
 **204 No Content**: sesión cerrada (se revoca la familia completa del `sid`,
 así ningún refresh de esa sesión vuelve a servir). Es idempotente: si la
-sesión ya estaba revocada, o la cuenta está suspendida, también responde 204.
+sesión ya estaba revocada, la cuenta está suspendida o el token de acceso
+venció, también responde 204.
 
-**401 NO_AUTENTICADO, TOKEN_INVALIDO o TOKEN_EXPIRADO**: el token falta, no es
-válido o venció. En ese caso la app borra la sesión local igual: para la
+**401 NO_AUTENTICADO o TOKEN_INVALIDO**: el token falta, tiene una firma que
+no es válida o está mal formado. Nunca responde `TOKEN_EXPIRADO`. En ese caso la app borra la sesión local igual: para la
 persona el resultado es el mismo.
 
 ---

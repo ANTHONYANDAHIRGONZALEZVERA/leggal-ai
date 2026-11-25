@@ -217,6 +217,52 @@ describe('Sesión: /auth/me y /auth/logout (e2e)', () => {
       expect(refresh.body.codigo).toBe('SESION_REVOCADA');
     });
 
+    it('logout con token vencido → 204 y el refresh queda revocado (401 SESION_REVOCADA)', async () => {
+      const sesion = await registrar();
+      // Mismo usuario y sesión real, pero el token de acceso venció hace una hora.
+      const { sub, tid, sid } = jwt.decode<{
+        sub: string;
+        tid: null;
+        sid: string;
+      }>(sesion.tokenAcceso);
+      const vencido = jwt.sign({ sub, tid, sid }, { expiresIn: -3600 });
+
+      // /me sigue rechazando el token vencido: solo el logout lo acepta.
+      expect((await yo(vencido).expect(401)).body.codigo).toBe(
+        'TOKEN_EXPIRADO',
+      );
+
+      await salir(vencido).expect(204);
+
+      const refresh = await http()
+        .post('/auth/refresh')
+        .send({ tokenRefresco: sesion.tokenRefresco })
+        .expect(401);
+      expect(refresh.body.codigo).toBe('SESION_REVOCADA');
+      // Y el token de acceso que todavía no vencía tampoco sirve ya.
+      expect((await yo(sesion.tokenAcceso).expect(401)).body.codigo).toBe(
+        'SESION_REVOCADA',
+      );
+    });
+
+    it('logout con token vencido pero firma falsa → 401 TOKEN_INVALIDO y la sesión sigue abierta', async () => {
+      const sesion = await registrar();
+      const { sub, tid, sid } = jwt.decode<{
+        sub: string;
+        tid: null;
+        sid: string;
+      }>(sesion.tokenAcceso);
+      const falso = new JwtService({ secret: 'y'.repeat(48) }).sign(
+        { sub, tid, sid },
+        { expiresIn: -3600 },
+      );
+
+      expect((await salir(falso).expect(401)).body.codigo).toBe(
+        'TOKEN_INVALIDO',
+      );
+      await yo(sesion.tokenAcceso).expect(200);
+    });
+
     it('es idempotente: un segundo logout con el mismo token también da 204', async () => {
       const { tokenAcceso } = await registrar();
       await salir(tokenAcceso).expect(204);
