@@ -46,7 +46,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (396)
+## Pruebas actuales (398)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -510,7 +510,7 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
 | Vueltas (4) | Desde 0 una vuelta entera; a la mitad, media; casi al final, casi nada; pasada una vuelta, solo lo de la actual |
 | Otra medida | Sirve para vueltas de 2π (giro de la esfera) |
 
-### Arrastrar las sugerencias: `src/features/inicio/__tests__/sugerencias-test.tsx` (6)
+### Arrastrar las sugerencias: `src/features/inicio/__tests__/sugerencias-test.tsx` (8)
 Cada fila de sugerencias del Inicio se mueve sola y se puede arrastrar con el
 dedo (F12). El gesto se simula con `fireGestureHandler` de Gesture Handler y el
 movimiento se lee con `getAnimatedStyle` de Reanimated.
@@ -518,9 +518,11 @@ movimiento se lee con `getAnimatedStyle` de Reanimated.
 |---|---|
 | Sigue al dedo | +50 pt de dedo = +50 pt de fila, vaya sola a la derecha o a la izquierda |
 | Más de una vuelta | Arrastrar mucho no deja huecos ni se sale de la franja de una copia |
+| Impulso en puntos | Al soltar, la velocidad va en pt/s con el sentido del dedo (en vueltas, Reanimated cortaba el frenado a ~400 pt/s) |
 | Sin medir | Antes de conocer el ancho, arrastrar no la mueve |
 | Solo en horizontal | Se activa a los 10 pt en horizontal y en vertical cede el scroll a la página |
 | En vivo | Con el dedo, la fila 0 y la 1 se mueven lo que se arrastra |
+| Soltar despacio | A 300 pt/s sigue deslizándose y frena suave, sin cortarse de golpe |
 | Al soltar | Frena y vuelve a moverse sola desde donde quedó (sin saltar) |
 
 ### Espacio activo: `src/features/inicio/__tests__/espacio-test.ts` (5)
@@ -607,6 +609,11 @@ movimiento se lee con `getAnimatedStyle` de Reanimated.
   (falló 1), arrastre que ignora la dirección de la fila (2), sin el contador
   al soltar (1; la fila se quedaba quieta si se agarraba y soltaba rápido, por
   eso existe) y sin llevar el avance a una vuelta (1). Luego se restauró.
+- 27 nov 2026 (fluidez al soltar, tras probar en el teléfono): impulso en
+  vueltas en vez de puntos (fallaron 2; era la traba que se veía), frenado
+  brusco 0,97 (1), no reanudar al soltar (1) y reanudar sin llevar el avance
+  a la vuelta (1). Luego se restauró. El reanudar quedó en el hilo de UI, sin
+  pasar por React, así que el contador del control anterior ya no existe.
 - 27 nov 2026 (curva de las cajas del código): con la curva como texto
   `"cubic-bezier(...)"`, que en Android rompe la pantalla, `npm run tipos`
   marca el error (1). Antes no lo marcaba porque `expo-env.d.ts` traía los

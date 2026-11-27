@@ -5,7 +5,15 @@ import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-han
 
 import { renderizar } from '@/pruebas/renderizar';
 
-import { avanceArrastrado, desplazamiento, enVuelta, SugerenciasAsistente, UMBRAL_ARRASTRE } from '../sugerencias-asistente';
+import {
+  avanceArrastrado,
+  desplazamiento,
+  enVuelta,
+  FRENADO,
+  impulsoAlSoltar,
+  SugerenciasAsistente,
+  UMBRAL_ARRASTRE,
+} from '../sugerencias-asistente';
 
 jest.mock('@/components/icono', () => ({ Icono: () => null }));
 
@@ -37,6 +45,13 @@ describe('Arrastrar las sugerencias', () => {
       expect(desplazamiento(avance, COPIA, true)).toBeLessThanOrEqual(0);
       expect(desplazamiento(avance, COPIA, true)).toBeGreaterThanOrEqual(-COPIA);
     }
+  });
+
+  test('el impulso al soltar va en puntos por segundo, con el sentido del dedo', () => {
+    // En puntos: Reanimated termina el frenado bajo 1 unidad/s; en vueltas
+    // (copias de 400 pt) eso cortaba la fila de golpe a 400 pt/s.
+    expect(impulsoAlSoltar(-300, COPIA, true)).toEqual({ velocity: -300, velocityFactor: 1 / COPIA, deceleration: FRENADO });
+    expect(impulsoAlSoltar(-300, COPIA, false).velocity).toBe(300);
   });
 
   test('antes de medir la fila, arrastrar no la mueve', () => {
@@ -89,6 +104,35 @@ describe('Arrastrar las sugerencias', () => {
       const movido = (fila: number) => enVuelta((translateX(`fila-${fila}`) - antes[fila]) / COPIA) * COPIA;
       expect(movido(0)).toBeCloseTo(COPIA - 90, 0); // −90
       expect(movido(1)).toBeCloseTo(70, 0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('al soltarla despacio sigue deslizándose suave, sin cortarse de golpe', async () => {
+    jest.useFakeTimers();
+    try {
+      await renderizar(<SugerenciasAsistente />);
+      await fireEvent(screen.getByTestId('fila-0'), 'layout', { nativeEvent: { layout: { width: COPIA * 2 } } });
+      await unCuadro();
+
+      await act(async () => {
+        fireGestureHandler(getByGestureTestId('arrastre-fila-0'), [
+          { state: State.BEGAN },
+          { state: State.ACTIVE, translationX: -UMBRAL_ARRASTRE },
+          { state: State.ACTIVE, translationX: -40 },
+          { state: State.END, translationX: -40, velocityX: -300 },
+        ]);
+      });
+      await unCuadro();
+      const alSoltar = translateX('fila-0');
+      await act(() => jest.advanceTimersByTime(100));
+
+      // A 300 pt/s hacia la izquierda, en 0,1 s sigue ~19 pt más mientras
+      // frena (antes se cortaba y volvía de inmediato a ir sola a la derecha).
+      const siguio = enVuelta((translateX('fila-0') - alSoltar) / COPIA) * COPIA - COPIA;
+      expect(siguio).toBeLessThan(-10);
+      expect(siguio).toBeGreaterThan(-32);
     } finally {
       jest.useRealTimers();
     }

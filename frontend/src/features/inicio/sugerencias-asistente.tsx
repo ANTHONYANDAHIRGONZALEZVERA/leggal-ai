@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
-import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withDecay } from 'react-native-reanimated';
-import { scheduleOnRN } from 'react-native-worklets';
+import Animated, {
+  cancelAnimation,
+  type SharedValue,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDecay,
+} from 'react-native-reanimated';
 
 import { Icono, type NombreIcono } from '@/components/icono';
 import { Texto } from '@/components/texto';
@@ -124,6 +130,39 @@ export function avanceArrastrado(inicio: number, dx: number, anchoCopia: number,
   return inicio + (haciaDerecha ? dx : -dx) / anchoCopia;
 }
 
+/**
+ * Lleva el avance a la vuelta (al arrastrar pudo quedar en 1,3 o −0,4) y la
+ * fila sigue sola desde ahí. withTiming parte del valor actual: sin llevarlo
+ * antes a la vuelta, desde 1,3 iría hacia atrás.
+ */
+function reanudar(avance: SharedValue<number>, duracion: number) {
+  'worklet';
+  avance.set(enVuelta(avance.get()));
+  avance.set(bucleDesde(avance.get(), 1, duracion));
+}
+
+/**
+ * Cuánto frena la fila al soltarla (el de Reanimated por defecto): como una
+ * lista de Android, un lanzamiento de 2000 pt/s recorre ~680 pt en ~1 s.
+ * Reanimated frena sobre la velocidad ya frenada en cada cuadro: valores como
+ * 0,97 la detienen casi al instante.
+ */
+export const FRENADO = 0.998;
+
+/**
+ * Impulso al soltar. Va en puntos por segundo (`velocityFactor` lo pasa a
+ * vueltas): Reanimated da por terminado el frenado bajo 1 unidad/s, y en
+ * vueltas eso eran ~400 pt/s, así que la fila se cortaba de golpe.
+ */
+export function impulsoAlSoltar(velocidadX: number, anchoCopia: number, haciaDerecha: boolean) {
+  'worklet';
+  return {
+    velocity: haciaDerecha ? velocidadX : -velocidadX,
+    velocityFactor: 1 / Math.max(anchoCopia, 1),
+    deceleration: FRENADO,
+  };
+}
+
 /** El gesto se activa al mover el dedo 10 pt en horizontal; en vertical cede el scroll a la página. */
 export const UMBRAL_ARRASTRE = 10;
 
@@ -137,29 +176,21 @@ function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha, pausada, indice
   const anchoCopia = useSharedValue(0);
   const avance = useSharedValue(0);
   const inicioArrastre = useSharedValue(0);
-  // Se mueve sola cuando ya se midió, la pantalla está a la vista y nadie la
-  // arrastra. Al reanudar sigue donde quedó, sin saltar.
+  // Se mueve sola cuando ya se midió y la pantalla está a la vista. Al
+  // reanudar sigue donde quedó, sin saltar. `activa` le dice lo mismo al hilo
+  // de UI, que es quien la reanuda después de arrastrarla.
   const [medida, setMedida] = useState(false);
-  const [arrastrando, setArrastrando] = useState(false);
-  // Cuenta las veces que se soltó: si se agarra y se suelta muy rápido, los
-  // dos avisos llegan juntos y `arrastrando` termina igual que empezó; el
-  // contador sí cambia y el movimiento siempre se reanuda.
-  const [soltadas, setSoltadas] = useState(0);
+  const activa = useSharedValue(false);
   useEffect(() => {
-    if (!medida || pausada || arrastrando) return;
-    avance.set(enVuelta(avance.get()));
-    avance.set(bucleDesde(avance.get(), 1, duracion));
+    activa.set(medida && !pausada);
+    if (!medida || pausada) return;
+    reanudar(avance, duracion);
     return () => cancelAnimation(avance);
-  }, [medida, pausada, arrastrando, soltadas, duracion, avance]);
+  }, [medida, pausada, duracion, avance, activa]);
 
-  function alSoltar() {
-    setArrastrando(false);
-    setSoltadas((n) => n + 1);
-  }
-
-  // Arrastre con el dedo (en el hilo de UI). Al soltar sigue con el impulso
-  // del dedo hasta frenar y después vuelve a moverse sola desde ahí. Solo se
-  // avisa a React al empezar y al terminar, nunca en cada cuadro.
+  // Arrastre con el dedo, todo en el hilo de UI: React no se entera ni al
+  // agarrarla ni al soltarla (en Expo Go eso daba saltos). Al soltar sigue con
+  // el impulso del dedo, frena como una lista y vuelve a moverse sola desde ahí.
   const arrastre = usePanGesture({
     testID: `arrastre-fila-${indice}`,
     activeOffsetX: [-UMBRAL_ARRASTRE, UMBRAL_ARRASTRE],
@@ -168,7 +199,6 @@ function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha, pausada, indice
       'worklet';
       cancelAnimation(avance);
       inicioArrastre.set(avance.get());
-      scheduleOnRN(setArrastrando, true);
     },
     onUpdate: (e) => {
       'worklet';
@@ -176,10 +206,9 @@ function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha, pausada, indice
     },
     onDeactivate: (e) => {
       'worklet';
-      const velocidad = avanceArrastrado(0, e.velocityX, anchoCopia.get(), haciaDerecha);
       avance.set(
-        withDecay({ velocity: velocidad, deceleration: 0.997 }, (terminada) => {
-          if (terminada) scheduleOnRN(alSoltar);
+        withDecay(impulsoAlSoltar(e.velocityX, anchoCopia.get(), haciaDerecha), (terminada) => {
+          if (terminada && activa.get()) reanudar(avance, duracion);
         }),
       );
     },
