@@ -52,4 +52,11 @@ export const RUTAS_AUTH = {
   refresh: '/auth/refresh',
   logout: '/auth/logout',
   yo: '/auth/me',
+  // Propuesta del frontend hasta el contrato de B27 y B28
+  // (docs/api/codigos-borrador-frontend.md).
+  verificarCorreo: '/auth/verify-email',
+  reenviarCodigo: '/auth/verify-email/resend',
+  cambiarCorreo: '/auth/email',
+  olvideContrasena: '/auth/password/forgot',
+  restablecerContrasena: '/auth/password/reset',
 } as const;

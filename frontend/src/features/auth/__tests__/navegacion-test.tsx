@@ -28,10 +28,12 @@ const rutas = {
   _layout: RootLayout,
   index: Entrada,
   '(auth)/_layout': grupo(),
+  '(verificacion)/_layout': grupo(),
   '(onboarding)/_layout': grupo(),
   '(tabs)/_layout': grupo(),
   '(auth)/splash': pantalla('Splash'),
   '(auth)/iniciar-sesion': pantalla('Login'),
+  '(verificacion)/verificar-correo': pantalla('Revisa tu correo'),
   '(onboarding)/perfil': pantalla('Perfil'),
   '(tabs)/inicio': pantalla('Inicio'),
 };
@@ -90,6 +92,35 @@ describe('Navegación según la sesión', () => {
     expect(await screen.findByText('Perfil')).toBeOnTheScreen();
 
     await act(() => useSesion.getState().completarOnboarding());
+    expect(await screen.findByText('Inicio')).toBeOnTheScreen();
+  });
+
+  test('con el correo sin verificar va a "Revisa tu correo" y, al verificarlo, al paso 1/5', async () => {
+    useSesion.getState().iniciar(sesionDePrueba({ usuario: { correoVerificado: false, onboardingCompleto: false } }));
+    await renderRouter(rutas);
+
+    expect(await screen.findByText('Revisa tu correo')).toBeOnTheScreen();
+    expect(screen).toHavePathname('/verificar-correo');
+
+    const usuario = useSesion.getState().usuario!;
+    await act(() => useSesion.getState().actualizarUsuario({ ...usuario, correoVerificado: true }));
+
+    expect(await screen.findByText('Perfil')).toBeOnTheScreen();
+    expect(screen.queryByText('Revisa tu correo')).not.toBeOnTheScreen();
+  });
+
+  test('sin verificar, el onboarding y el Inicio no están disponibles', async () => {
+    useSesion.getState().iniciar(sesionDePrueba({ usuario: { correoVerificado: false, onboardingCompleto: false } }));
+    await renderRouter(rutas, { initialUrl: '/perfil' });
+
+    expect(await screen.findByText('Revisa tu correo')).toBeOnTheScreen();
+    expect(screen.queryByText('Perfil')).not.toBeOnTheScreen();
+  });
+
+  test('una cuenta que ya terminó el onboarding no se bloquea aunque no haya verificado', async () => {
+    useSesion.getState().iniciar(sesionDePrueba({ usuario: { correoVerificado: false, onboardingCompleto: true } }));
+    await renderRouter(rutas);
+
     expect(await screen.findByText('Inicio')).toBeOnTheScreen();
   });
 

@@ -46,7 +46,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (398)
+## Pruebas actuales (439)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -123,7 +123,7 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Reintento | El aviso desaparece al volver a intentar con la cuenta correcta |
 | Crear cuenta | El enlace lleva a `/registro` |
 
-### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (14)
+### Navegación según la sesión: `src/features/auth/__tests__/navegacion-test.tsx` (17)
 `app/_layout.tsx` y `app/index.tsx` reales (F10) con el enrutador de Expo Router
 (`renderRouter`); las pantallas son textos con su nombre.
 | Prueba | Qué asegura |
@@ -136,6 +136,8 @@ Desde F10 la pantalla no navega: guarda la sesión y la navegación (probada en
 | Cerrar sesión | Va a "Bienvenido de nuevo", no al Splash |
 | Splash una sola vez | Se ve al abrir sin sesión y no otra vez al salir |
 | Salir del 1/5 | Va a "Bienvenido de nuevo", no al Splash |
+| Correo sin verificar (2) | Va a "Revisa tu correo" y, al verificarlo, al 1/5; el onboarding no está disponible antes |
+| Onboarding hecho sin verificar | No se bloquea: va a Inicio |
 | Enlace directo sin sesión | `/inicio` no deja entrar |
 | Login con sesión | El Login ya no está disponible |
 | Refresh al abrir | Con sesión guardada pregunta una vez al servidor antes de mostrar la app |
@@ -486,6 +488,60 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Otros símbolos | No se admiten ("-", "!") |
 | Símbolos seguidos o al final | No se admiten |
 
+### Revisa tu correo: `src/features/auth/__tests__/verificar-correo-test.tsx` (9)
+Pantalla F23 contra la API simulada (B27), con una cuenta recién creada.
+| Prueba | Qué asegura |
+|---|---|
+| Al abrir | Dice a qué correo, "Reenviar código en 0:45" y Verificar desactivado |
+| Sexto dígito | Verifica solo y la cuenta queda verificada |
+| Solo dígitos | Al pegar "12a 3B4-56" queda 123456 |
+| Código incorrecto | Lo dice y el aviso se va al corregir |
+| Código vencido | Pide uno nuevo |
+| Reenviar | Pasados los 45 s, reenvía, avisa y reinicia el contador |
+| Cambiar correo | Corrige el correo y envía el código al nuevo |
+| Correo de otra cuenta | Se avisa debajo del campo y no cambia nada |
+| Atrás | La flecha y el "atrás" del teléfono salen al inicio de sesión |
+
+### ¿Olvidaste tu contraseña?: `src/features/auth/__tests__/recuperar-contrasena-test.tsx` (8)
+Pantalla F24 contra la API simulada (B28).
+| Prueba | Qué asegura |
+|---|---|
+| Correo inválido | No envía |
+| Paso 2 | Dice a qué correo sin confirmar si tiene cuenta, con el contador |
+| Cambiarla | Con código y contraseña nueva: entra la nueva y no la vieja |
+| Código incorrecto | Se avisa debajo de las cajas |
+| Validación | 6 dígitos y mínimo 8 caracteres |
+| Usar otro correo | Vuelve al paso 1 |
+| Flecha en el paso 1 | Vuelve al inicio de sesión |
+| Iniciar sesión | Al terminar lleva al inicio de sesión |
+
+### Cuenta regresiva: `src/features/auth/__tests__/use-cuenta-regresiva-test.ts` (6)
+| Prueba | Qué asegura |
+|---|---|
+| Baja | Un segundo por segundo y en 0 apaga su intervalo |
+| Reiniciar | Vuelve a 45 después de reenviar |
+| Formato (4) | 45 → 0:45, 5 → 0:05, 90 → 1:30, 0 → 0:00 |
+
+### API simulada de códigos: `src/services/api/__tests__/mock-codigos-test.ts` (15)
+Según `docs/api/codigos-borrador-frontend.md` (B27 y B28).
+| Prueba | Qué asegura |
+|---|---|
+| Verificar | Cuenta nueva sin verificar; el código correcto la verifica |
+| Incorrecto | 400 `CODIGO_INCORRECTO` con el campo |
+| Intentos | Tras 5 fallos, 429 aunque luego acierte |
+| Vencido | 410 `CODIGO_EXPIRADO` |
+| Idempotente | Verificar dos veces no falla |
+| Reenviar | Antes de 45 s 429 `ESPERA_REENVIO`; después, código nuevo que sirve |
+| Sin sesión | 401 |
+| Cambiar correo | Cambia, envía otro código y se entra con el nuevo |
+| Correo tomado o inválido | 409 `CORREO_EN_USO` o 400 |
+| Ya verificado | 409 `CORREO_YA_VERIFICADO` |
+| Pedir código | 204 exista o no la cuenta (no revela correos) |
+| Restablecer | La nueva entra y la vieja no |
+| Sesiones | Al cambiarla cierra las sesiones abiertas |
+| Errores | Sin código pedido 410, incorrecto 400, contraseña corta 400 |
+| Cuenta inexistente | Nunca puede restablecer |
+
 ### Inicio: `src/features/inicio/__tests__/inicio-test.tsx` (18)
 Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión real.
 | Prueba | Qué asegura |
@@ -595,6 +651,11 @@ movimiento se lee con `getAnimatedStyle` de Reanimated.
   "Ahora no" que deja a la persona trabada (1), preguntar con acceso inmediato
   (1), prometer avisos sin permiso (2) y ofrecerlos con la solicitud aprobada
   (1). Luego se restauró.
+- 21 nov 2026 (F23 y F24): sin el paso de verificación (fallaron 2), intentos
+  sin límite (1), no cerrar sesiones al cambiar la contraseña (1), revelar si
+  el correo existe (1), intervalo que no se apaga (1), aceptar letras en el
+  código (1; al principio no fallaba ninguna, por eso la prueba de pegar ahora
+  lleva letras) y no mostrar el error del código (1). Luego se restauró.
 - 21 nov 2026 (pausa del Inicio): nunca pausar (falló 1) y reanudar con una
   vuelta entera, que da un salto (4). Luego se restauró.
 - 21 nov 2026 (sugerencias del Inicio): todas hacia el mismo lado (falló 1) y
