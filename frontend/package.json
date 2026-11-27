@@ -55,7 +55,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "tipos": "tsc --noEmit",
+    "tipos": "tsc --noEmit -p tsconfig.tipos.json",
     "test": "jest",
     "test:vigilar": "jest --watch",
     "postinstall": "setup-skia-web public"

@@ -54,4 +54,6 @@ export const motion = {
   // "cubic-bezier(...)": hay que usar la función cubicBezier.
   curvaEntrada: cubicBezier(0.2, 0.8, 0.2, 1),
   curvaCarga: cubicBezier(0.33, 0, 0.2, 1),
+  /** Salida fuerte (como easeOut): las cajas del código al caer. */
+  curvaSalida: cubicBezier(0.23, 1, 0.32, 1),
 } as const;

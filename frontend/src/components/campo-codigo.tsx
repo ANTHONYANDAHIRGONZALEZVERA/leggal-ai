@@ -3,7 +3,7 @@ import { Pressable, TextInput, View, type TextInputInstance } from 'react-native
 import Animated, { useReducedMotion, type CSSAnimationKeyframes } from 'react-native-reanimated';
 
 import { normalizarCodigo } from '@/features/empresas/esquemas';
-import { colors, fontFamily } from '@/theme';
+import { colors, fontFamily, motion } from '@/theme';
 
 import { Texto } from './texto';
 
@@ -74,7 +74,7 @@ export function CampoCodigo({ valor, onCambiar, error }: Props) {
                     animationDuration: 400,
                     animationDelay: i * 80,
                     animationFillMode: 'both',
-                    animationTimingFunction: 'cubic-bezier(0.23, 1, 0.32, 1)',
+                    animationTimingFunction: motion.curvaSalida,
                   },
                 ]}>
                 {valor[i] ? (

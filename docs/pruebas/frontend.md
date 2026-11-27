@@ -589,6 +589,10 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
 - 24 nov 2026 (Inicio sobre `main`, antes de la PR, en copia limpia):
   ignorar la empresa de la sesión (falló 1) y no pausar nunca las animaciones
   (1). Luego se restauró.
+- 27 nov 2026 (curva de las cajas del código): con la curva como texto
+  `"cubic-bezier(...)"`, que en Android rompe la pantalla, `npm run tipos`
+  marca el error (1). Antes no lo marcaba porque `expo-env.d.ts` traía los
+  tipos de web; ahora `tsconfig.tipos.json` lo deja fuera. Luego se restauró.
 - 21 nov 2026 (salir sin pasar por el Splash): volver siempre al Splash
   (fallaron 3), dar la app por abierta sin haber entrado (1) y que el atrás del
   teléfono no saliera (1). Luego se restauró.
