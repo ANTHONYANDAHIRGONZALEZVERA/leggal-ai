@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
+import Animated, { cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withDecay } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { Icono, type NombreIcono } from '@/components/icono';
 import { Texto } from '@/components/texto';
@@ -91,6 +93,14 @@ function Chip({ accion, resto, icono, fondo, color }: Sugerencia) {
   );
 }
 
+// Va antes que las demás: el plugin de worklets las vuelve constantes y no
+// se pueden usar antes de declararlas.
+/** Lleva cualquier avance a una vuelta (0 → 1): 1.25 → 0.25 y −0.25 → 0.75. */
+export function enVuelta(avance: number) {
+  'worklet';
+  return ((avance % 1) + 1) % 1;
+}
+
 /**
  * Dónde está la fila según su avance en el ciclo (0 → 1). Hacia la izquierda
  * va de 0 a −ancho de una copia; hacia la derecha, de −ancho a 0. Al cerrar el
@@ -99,8 +109,23 @@ function Chip({ accion, resto, icono, fondo, color }: Sugerencia) {
  */
 export function desplazamiento(avance: number, anchoCopia: number, haciaDerecha: boolean) {
   'worklet';
-  return haciaDerecha ? -anchoCopia * (1 - avance) : -anchoCopia * avance;
+  // Al arrastrar o con el impulso puede salirse de 0 → 1: se lleva a la vuelta.
+  const enCiclo = avance < 0 || avance > 1 ? enVuelta(avance) : avance;
+  return haciaDerecha ? -anchoCopia * (1 - enCiclo) : -anchoCopia * enCiclo;
 }
+
+/**
+ * Avance después de arrastrar la fila `dx` puntos con el dedo desde `inicio`:
+ * la fila sigue al dedo punto por punto, vaya hacia donde vaya sola.
+ */
+export function avanceArrastrado(inicio: number, dx: number, anchoCopia: number, haciaDerecha: boolean) {
+  'worklet';
+  if (anchoCopia <= 0) return inicio;
+  return inicio + (haciaDerecha ? dx : -dx) / anchoCopia;
+}
+
+/** El gesto se activa al mover el dedo 10 pt en horizontal; en vertical cede el scroll a la página. */
+export const UMBRAL_ARRASTRE = 10;
 
 /**
  * Una fila que se desliza sola y sin fin: la lista va dos veces seguidas y se
@@ -108,17 +133,57 @@ export function desplazamiento(avance: number, anchoCopia: number, haciaDerecha:
  * Reanimated, como la esfera: corre en el hilo de UI y React no vuelve a
  * dibujar nada en cada cuadro.
  */
-function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha, pausada }: Fila & { pausada?: boolean }) {
+function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha, pausada, indice }: Fila & { pausada?: boolean; indice: number }) {
   const anchoCopia = useSharedValue(0);
   const avance = useSharedValue(0);
-  // Se mueve solo cuando ya se midió y la pantalla está a la vista. Al
-  // reanudar sigue donde quedó, sin saltar.
+  const inicioArrastre = useSharedValue(0);
+  // Se mueve sola cuando ya se midió, la pantalla está a la vista y nadie la
+  // arrastra. Al reanudar sigue donde quedó, sin saltar.
   const [medida, setMedida] = useState(false);
+  const [arrastrando, setArrastrando] = useState(false);
+  // Cuenta las veces que se soltó: si se agarra y se suelta muy rápido, los
+  // dos avisos llegan juntos y `arrastrando` termina igual que empezó; el
+  // contador sí cambia y el movimiento siempre se reanuda.
+  const [soltadas, setSoltadas] = useState(0);
   useEffect(() => {
-    if (!medida || pausada) return;
+    if (!medida || pausada || arrastrando) return;
+    avance.set(enVuelta(avance.get()));
     avance.set(bucleDesde(avance.get(), 1, duracion));
     return () => cancelAnimation(avance);
-  }, [medida, pausada, duracion, avance]);
+  }, [medida, pausada, arrastrando, soltadas, duracion, avance]);
+
+  function alSoltar() {
+    setArrastrando(false);
+    setSoltadas((n) => n + 1);
+  }
+
+  // Arrastre con el dedo (en el hilo de UI). Al soltar sigue con el impulso
+  // del dedo hasta frenar y después vuelve a moverse sola desde ahí. Solo se
+  // avisa a React al empezar y al terminar, nunca en cada cuadro.
+  const arrastre = usePanGesture({
+    testID: `arrastre-fila-${indice}`,
+    activeOffsetX: [-UMBRAL_ARRASTRE, UMBRAL_ARRASTRE],
+    failOffsetY: [-UMBRAL_ARRASTRE, UMBRAL_ARRASTRE],
+    onActivate: () => {
+      'worklet';
+      cancelAnimation(avance);
+      inicioArrastre.set(avance.get());
+      scheduleOnRN(setArrastrando, true);
+    },
+    onUpdate: (e) => {
+      'worklet';
+      avance.set(avanceArrastrado(inicioArrastre.get(), e.translationX, anchoCopia.get(), haciaDerecha));
+    },
+    onDeactivate: (e) => {
+      'worklet';
+      const velocidad = avanceArrastrado(0, e.velocityX, anchoCopia.get(), haciaDerecha);
+      avance.set(
+        withDecay({ velocity: velocidad, deceleration: 0.997 }, (terminada) => {
+          if (terminada) scheduleOnRN(alSoltar);
+        }),
+      );
+    },
+  });
 
   function medir(ancho: number) {
     if (ancho <= 0 || ancho === anchoCopia.get()) return;
@@ -138,28 +203,35 @@ function FilaEnMovimiento({ sugerencias, duracion, haciaDerecha, pausada }: Fila
   // un View normal quedaría del ancho de la pantalla y en Android lo que se
   // sale no se dibuja. Se mide la misma vista animada, que Android nunca quita
   // al optimizar (un View simple sí puede quitarlo y su medida no llega).
+  // El gesto va en una vista propia: el ScrollView no recibe toques.
   return (
-    <ScrollView horizontal scrollEnabled={false} showsHorizontalScrollIndicator={false} pointerEvents="none">
-      <Animated.View
-        onLayout={(e) => medir(e.nativeEvent.layout.width / 2)}
-        style={[{ flexDirection: 'row', gap: SEPARACION, paddingRight: SEPARACION }, estilo]}>
-        {sugerenciasDobles.map((sugerencia, i) => (
-          <Chip key={`${sugerencia.accion}-${i}`} {...sugerencia} />
-        ))}
-      </Animated.View>
-    </ScrollView>
+    <GestureDetector gesture={arrastre}>
+      <View collapsable={false}>
+        <ScrollView horizontal scrollEnabled={false} showsHorizontalScrollIndicator={false} pointerEvents="none">
+          <Animated.View
+            testID={`fila-${indice}`}
+            onLayout={(e) => medir(e.nativeEvent.layout.width / 2)}
+            style={[{ flexDirection: 'row', gap: SEPARACION, paddingRight: SEPARACION }, estilo]}>
+            {sugerenciasDobles.map((sugerencia, i) => (
+              <Chip key={`${sugerencia.accion}-${i}`} {...sugerencia} />
+            ))}
+          </Animated.View>
+        </ScrollView>
+      </View>
+    </GestureDetector>
   );
 }
 
 // Sugerencias del asistente en el Inicio (diseño "Main"). El asistente todavía
-// no existe: se muestran sin acción. Con "reducir movimiento" no se mueven y se
-// pueden deslizar con el dedo.
+// no existe: se muestran sin acción. Cada fila se mueve sola y se puede
+// arrastrar con el dedo; con "reducir movimiento" no se mueven solas y se
+// deslizan como una lista normal.
 export function SugerenciasAsistente({ pausada }: { pausada?: boolean }) {
   const reducido = useReducedMotion();
 
   return (
     <View accessible accessibilityLabel={DESCRIPCION_SUGERENCIAS} style={{ gap: SEPARACION }}>
-      {FILAS.map((fila) =>
+      {FILAS.map((fila, indice) =>
         reducido ? (
           <ScrollView
             key={fila.sugerencias[0].accion}
@@ -171,7 +243,7 @@ export function SugerenciasAsistente({ pausada }: { pausada?: boolean }) {
             ))}
           </ScrollView>
         ) : (
-          <FilaEnMovimiento key={fila.sugerencias[0].accion} {...fila} pausada={pausada} />
+          <FilaEnMovimiento key={fila.sugerencias[0].accion} {...fila} indice={indice} pausada={pausada} />
         ),
       )}
       {/* Bordes que se desvanecen, como la máscara del diseño. */}

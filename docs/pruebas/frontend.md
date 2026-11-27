@@ -38,6 +38,7 @@ workflow deja un comentario con el error.
 | `expo-router` (`router`, `Link`) | La navegación real necesita todo el árbol de rutas; basta comprobar a dónde intenta ir la pantalla. |
 | `react-native-safe-area-context` | Usa el mock oficial de la librería (márgenes del teléfono con valores fijos). |
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
+| Gesture Handler | Su `jestSetup` oficial (en `package.json`) reemplaza la parte nativa. Además, `jest.setup.ts` le da a Worklets un hilo de UI vacío: Gesture Handler lo pide al cargarse y en Jest no existe. Los gestos se simulan con `fireGestureHandler`. |
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | `@expo/ui` | Dibuja vistas nativas (SwiftUI / Compose) que en Jest quedan como cajas vacías sin texto. `jest.setup.ts` lo reemplaza: la hoja muestra su contenido solo si está abierta y los botones se pueden tocar. |
 | `Alert.alert` | El diálogo nativo no existe en Jest: las pruebas lo espían y "tocan" el botón que corresponde (por ejemplo, "Sí, cancelar"). |
@@ -45,7 +46,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (390)
+## Pruebas actuales (396)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -509,6 +510,19 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
 | Vueltas (4) | Desde 0 una vuelta entera; a la mitad, media; casi al final, casi nada; pasada una vuelta, solo lo de la actual |
 | Otra medida | Sirve para vueltas de 2π (giro de la esfera) |
 
+### Arrastrar las sugerencias: `src/features/inicio/__tests__/sugerencias-test.tsx` (6)
+Cada fila de sugerencias del Inicio se mueve sola y se puede arrastrar con el
+dedo (F12). El gesto se simula con `fireGestureHandler` de Gesture Handler y el
+movimiento se lee con `getAnimatedStyle` de Reanimated.
+| Prueba | Qué asegura |
+|---|---|
+| Sigue al dedo | +50 pt de dedo = +50 pt de fila, vaya sola a la derecha o a la izquierda |
+| Más de una vuelta | Arrastrar mucho no deja huecos ni se sale de la franja de una copia |
+| Sin medir | Antes de conocer el ancho, arrastrar no la mueve |
+| Solo en horizontal | Se activa a los 10 pt en horizontal y en vertical cede el scroll a la página |
+| En vivo | Con el dedo, la fila 0 y la 1 se mueven lo que se arrastra |
+| Al soltar | Frena y vuelve a moverse sola desde donde quedó (sin saltar) |
+
 ### Espacio activo: `src/features/inicio/__tests__/espacio-test.ts` (5)
 | Prueba | Qué asegura |
 |---|---|
@@ -589,6 +603,10 @@ Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión rea
 - 24 nov 2026 (Inicio sobre `main`, antes de la PR, en copia limpia):
   ignorar la empresa de la sesión (falló 1) y no pausar nunca las animaciones
   (1). Luego se restauró.
+- 27 nov 2026 (arrastrar las sugerencias): sin ceder el scroll vertical
+  (falló 1), arrastre que ignora la dirección de la fila (2), sin el contador
+  al soltar (1; la fila se quedaba quieta si se agarraba y soltaba rápido, por
+  eso existe) y sin llevar el avance a una vuelta (1). Luego se restauró.
 - 27 nov 2026 (curva de las cajas del código): con la curva como texto
   `"cubic-bezier(...)"`, que en Android rompe la pantalla, `npm run tipos`
   marca el error (1). Antes no lo marcaba porque `expo-env.d.ts` traía los
