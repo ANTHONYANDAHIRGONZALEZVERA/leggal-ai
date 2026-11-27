@@ -3,6 +3,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router/stack';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { crearClienteConsultas } from '@/services/consultas';
 import { marcarAppAbierta } from '@/services/entrada';
@@ -31,10 +32,14 @@ export default function RootLayout() {
 
   if (!listo) return null;
 
+  // GestureHandlerRootView: sin él los gestos (arrastrar las sugerencias del
+  // Inicio) no se reconocen.
   return (
-    <QueryClientProvider client={clienteConsultas}>
-      <Navegacion />
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={clienteConsultas}>
+        <Navegacion />
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 

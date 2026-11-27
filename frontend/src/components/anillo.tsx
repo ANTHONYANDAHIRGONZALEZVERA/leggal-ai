@@ -18,12 +18,14 @@ type Props = {
   ancho: number;
   alto: number;
   tono?: keyof typeof tonos;
+  /** Detiene la animación donde va (pantalla que no está a la vista). */
+  pausada?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
 // Anillo cromado inclinado que acompaña a la esfera en Splash y Login. Es un
 // degradado radial nativo: no necesita Skia.
-export function Anillo({ ancho, alto, tono = 'claro', style }: Props) {
+export function Anillo({ ancho, alto, tono = 'claro', pausada, style }: Props) {
   const reducido = useReducedMotion();
 
   return (
@@ -46,6 +48,7 @@ export function Anillo({ ancho, alto, tono = 'claro', style }: Props) {
           animationDuration: 11000,
           animationIterationCount: 'infinite',
           animationTimingFunction: 'ease-in-out',
+          animationPlayState: pausada ? 'paused' : 'running',
         },
       ]}
     />

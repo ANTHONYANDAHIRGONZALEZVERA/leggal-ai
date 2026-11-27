@@ -142,6 +142,48 @@ describe('API simulada: solicitudes de acceso', () => {
   });
 });
 
+describe('API simulada: GET /auth/me con empresas (B11)', () => {
+  const yo = async (conToken = token) => (await pedir('GET', '/auth/me', undefined, conToken)).datos;
+
+  test('sin nada todavía, no tiene empresas ni espacio activo', async () => {
+    expect(await yo()).toMatchObject({ empresaActivaId: null, empresas: [] });
+  });
+
+  test('su espacio personal es el activo de la sesión que lo creó', async () => {
+    const { datos } = await pedir('POST', '/tenants', { tipo: 'personal' }, token);
+
+    expect(await yo(datos.tokenAcceso)).toMatchObject({
+      empresaActivaId: datos.empresa.id,
+      empresas: [{ id: datos.empresa.id, nombre: 'Espacio personal', tipo: 'personal', rol: 'Administrador', estadoMembresia: 'activa' }],
+    });
+  });
+
+  test('la empresa que creó aparece como Administrador', async () => {
+    const { datos } = await pedir('POST', '/tenants', EMPRESA, token);
+
+    expect((await yo(datos.tokenAcceso)).empresas).toEqual([
+      { id: datos.empresa.id, nombre: 'Mi Estudio', tipo: 'empresa', rol: 'Administrador', estadoMembresia: 'activa' },
+    ]);
+  });
+
+  test('una solicitud pendiente aparece en espera y una aprobada como activa, con su rol', async () => {
+    await canjear(CODIGOS_DE_PRUEBA.accons);
+    await canjear(CODIGOS_DE_PRUEBA.directo);
+
+    expect((await yo()).empresas).toEqual([
+      { id: 'emp-accons', nombre: 'ACCONS S.A.S.', tipo: 'empresa', rol: 'Abogado/a', estadoMembresia: 'en_espera' },
+      { id: 'emp-andina', nombre: 'Consultora Jurídica Andina', tipo: 'empresa', rol: 'Abogado/a', estadoMembresia: 'activa' },
+    ]);
+  });
+
+  test('las solicitudes rechazadas o canceladas no aparecen', async () => {
+    const { datos } = await canjear(CODIGOS_DE_PRUEBA.accons);
+    decidirSolicitud(datos.solicitud.id, 'rechazada');
+
+    expect((await yo()).empresas).toEqual([]);
+  });
+});
+
 describe('API simulada: crear empresa', () => {
   test('crea la empresa y devuelve una sesión cuyo token ya trae su tid', async () => {
     const r = await pedir('POST', '/tenants', EMPRESA, token);

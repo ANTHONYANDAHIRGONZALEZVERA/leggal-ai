@@ -1,0 +1,10 @@
+// Revisión de tipos (npm run tipos, también en el CI). Deja fuera
+// expo-env.d.ts: trae los tipos de react-native-web, que aceptan cosas que en
+// Android fallan (por ejemplo la curva "cubic-bezier(...)" como texto en una
+// animación de Reanimated). Así la PC y el CI revisan igual y con los tipos
+// reales de la app.
+{
+  "extends": "./tsconfig.json",
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts"],
+  "exclude": ["node_modules", "expo-env.d.ts"]
+}

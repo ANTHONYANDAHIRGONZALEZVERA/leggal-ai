@@ -16,15 +16,13 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   cancelAnimation,
   type CSSAnimationKeyframes,
-  Easing,
   useDerivedValue,
   useReducedMotion,
   useSharedValue,
-  withRepeat,
-  withTiming,
 } from 'react-native-reanimated';
 
 import { motion } from '@/theme';
+import { bucleDesde } from '@/utils/animacion';
 
 // Esfera cromada del diseño, dibujada con Skia en lugar de exportarla como
 // imagen: se ve nítida en cualquier pantalla y conserva su animación.
@@ -88,6 +86,8 @@ type Props = {
   flotar?: boolean;
   /** Posición dentro de la pantalla (normalmente absoluta). */
   style?: StyleProp<ViewStyle>;
+  /** Detiene la animación sin perder la pose (pantalla que no está a la vista). */
+  pausada?: boolean;
 };
 
 function trazarForma(p: SkPathBuilder, r: readonly number[], x: number, y: number, w: number, h: number) {
@@ -106,7 +106,7 @@ function trazarForma(p: SkPathBuilder, r: readonly number[], x: number, y: numbe
   p.close();
 }
 
-export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, entrada, flotar, style }: Props) {
+export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, entrada, flotar, pausada, style }: Props) {
   const reducido = useReducedMotion();
   const paleta = paletas[tono];
 
@@ -120,17 +120,18 @@ export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, entrad
   const orbita = useSharedValue(0);
 
   useEffect(() => {
-    // "Reducir movimiento": la esfera queda quieta en su primera pose.
-    if (reducido) return;
-    fase.set(withRepeat(withTiming(POSES.length, { duration: ciclo, easing: Easing.linear }), -1));
-    giro.set(withRepeat(withTiming(2 * Math.PI, { duration: 4000, easing: Easing.linear }), -1));
-    orbita.set(withRepeat(withTiming(2 * Math.PI, { duration: 7000, easing: Easing.linear }), -1));
+    // "Reducir movimiento": la esfera queda quieta en su primera pose. En
+    // pausa queda quieta donde iba y al reanudar sigue desde ahí.
+    if (reducido || pausada) return;
+    fase.set(bucleDesde(fase.get(), POSES.length, ciclo));
+    giro.set(bucleDesde(giro.get(), 2 * Math.PI, 4000));
+    orbita.set(bucleDesde(orbita.get(), 2 * Math.PI, 7000));
     return () => {
       cancelAnimation(fase);
       cancelAnimation(giro);
       cancelAnimation(orbita);
     };
-  }, [reducido, ciclo, fase, giro, orbita]);
+  }, [reducido, pausada, ciclo, fase, giro, orbita]);
 
   const forma = usePathValue((p) => {
     'worklet';
@@ -181,6 +182,7 @@ export function Esfera({ ancho: w, alto: h, tono = 'claro', ciclo = 9000, entrad
             animationDuration: 8000,
             animationIterationCount: 'infinite',
             animationTimingFunction: 'ease-in-out',
+            animationPlayState: pausada ? 'paused' : 'running',
           }
         }>
         <Canvas style={{ width: w + m * 2, height: h + m * 2, margin: -m }}>

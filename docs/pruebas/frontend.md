@@ -38,6 +38,7 @@ workflow deja un comentario con el error.
 | `expo-router` (`router`, `Link`) | La navegación real necesita todo el árbol de rutas; basta comprobar a dónde intenta ir la pantalla. |
 | `react-native-safe-area-context` | Usa el mock oficial de la librería (márgenes del teléfono con valores fijos). |
 | Reanimated | Su resolver de Jest (`react-native-reanimated/jest/resolver`) carga la versión en JavaScript. |
+| Gesture Handler | Su `jestSetup` oficial (en `package.json`) reemplaza la parte nativa. Además, `jest.setup.ts` le da a Worklets un hilo de UI vacío: Gesture Handler lo pide al cargarse y en Jest no existe. Los gestos se simulan con `fireGestureHandler`. |
 | `expo-secure-store` | El almacén cifrado del teléfono no existe en Jest: `jest.setup.ts` lo reemplaza por uno en memoria. |
 | `@expo/ui` | Dibuja vistas nativas (SwiftUI / Compose) que en Jest quedan como cajas vacías sin texto. `jest.setup.ts` lo reemplaza: la hoja muestra su contenido solo si está abierta y los botones se pueden tocar. |
 | `Alert.alert` | El diálogo nativo no existe en Jest: las pruebas lo espían y "tocan" el botón que corresponde (por ejemplo, "Sí, cancelar"). |
@@ -45,7 +46,7 @@ workflow deja un comentario con el error.
 | `expo-image-picker`, `expo-image-manipulator` | La galería, la cámara y el recorte son del sistema. Se reemplazan por dobles que devuelven una foto o registran qué se les pidió. |
 | Backend | Las pantallas usan la **API simulada real** (F11), no un doble: en Jest no hay `EXPO_PUBLIC_API_URL`. Cada prueba la deja en limpio con `reiniciarMock()` y cierra la sesión. El cliente se prueba aparte con un transporte falso. |
 
-## Pruebas actuales (353)
+## Pruebas actuales (398)
 
 ### Medidor de seguridad: `src/features/auth/__tests__/seguridad-contrasena-test.ts` (6)
 Función `medirContrasena` del Registro (F08).
@@ -251,7 +252,7 @@ Sigue el contrato B03 (`docs/api/auth.md`): refresh en `POST /auth/refresh` con
 | Refresh reusado | Se toma como robo: 401 `SESION_REVOCADA` y se cierran todas las sesiones de la persona |
 | Logout | 204 con `Bearer`; cierra solo esa sesión, la otra sigue |
 | Logout repetido / sin token | Idempotente (204); sin token 401 `NO_AUTENTICADO` |
-| Me | Usuario, `empresaActivaId: null` y `empresas: []` |
+| Me | Usuario y sus empresas (la demo ya es Administrador de ACCONS) |
 | Me con sesión cerrada | 401 `SESION_REVOCADA` |
 | Ruta desconocida | 404 que dice qué ruta falta |
 | Recargar la app | Un refresh de antes de recargar sirve una vez (el backend real no olvida sesiones); reusarlo da `SESION_REVOCADA` |
@@ -433,7 +434,7 @@ Pantalla "Conéctate a tu empresa" (F33), contra la API simulada con sesión rea
 | Cédula (7) | Acepta cédulas reales del módulo 10; rechaza verificador cambiado, 9 dígitos o letras; a las sociedades no se les aplica |
 | Empresa (6) | Acepta datos completos; rechaza sin razón social, solo símbolos, RUC inválido o tamaño faltante o inventado |
 
-### API simulada de empresas: `src/services/api/__tests__/mock-empresas-test.ts` (21)
+### API simulada de empresas: `src/services/api/__tests__/mock-empresas-test.ts` (26)
 Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Prueba | Qué asegura |
 |---|---|
@@ -442,6 +443,10 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Límite | Después de 5 intentos en la hora, 429 `DEMASIADOS_INTENTOS` |
 | Canjear | Crea la solicitud en espera con el código con guion y sin datos internos |
 | Duplicada | 409 `SOLICITUD_EXISTENTE` |
+| Me sin nada (B11) | Sin empresas ni espacio activo |
+| Me con espacio personal | Es el activo (`empresaActivaId`) de la sesión que lo creó |
+| Me con empresa creada | Aparece como Administrador |
+| Me con solicitudes | Pendiente como `en_espera` y aprobada como `activa`, con su rol; rechazadas o canceladas no aparecen (2) |
 | Acceso inmediato | `DIR-8M3` crea la solicitud ya aprobada |
 | Aprobación simulada | `LEX-4P9` se aprueba sola a los 40 s y no antes; `ACC-7K2` nunca sola |
 | Mis solicitudes | Devuelve las de la persona con su estado al día |
@@ -481,8 +486,56 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Otros símbolos | No se admiten ("-", "!") |
 | Símbolos seguidos o al final | No se admiten |
 
-### Texto: `src/utils/__tests__/texto-test.ts` (9)
-`quitarAcentos`, `iniciales` (F30) y `conPunto` (F33).
+### Inicio: `src/features/inicio/__tests__/inicio-test.tsx` (18)
+Pantalla de Inicio (F12, diseño "Main"), contra la API simulada con sesión real.
+| Prueba | Qué asegura |
+|---|---|
+| Saludo | "Hola," y el primer nombre; iniciales en el avatar |
+| Cargando | El selector dice "cargando tu espacio" y luego muestra la empresa activa |
+| Modo Personal | "Espacio personal" y "Personalizado para ti" |
+| Empresa creada | Su empresa y "Personalizado para tu despacho" |
+| Solicitud pendiente | Trabaja en su espacio personal, no en la empresa |
+| Acceso inmediato | La empresa a la que entró con `DIR-8M3` |
+| Próximamente (3) | Selector de espacio, lupa y campana avisan que llegan pronto |
+| El aviso se va solo | A los 2,2 s desaparece |
+| Avatar | Lleva a Más |
+| Pausa (2) | A la vista, esferas, anillo y ondas se animan; en otra pestaña se pausan (las pestañas nativas dejan Inicio montado) |
+| Asistente | Se ve (sugerencias y caja) pero no se puede tocar; sin "Continuar chat" (no hay chats reales) |
+| Sugerencias en movimiento (4) | La 1 y la 3 hacia la derecha y la 2 hacia la izquierda; cada ciclo corre exactamente una copia (sin salto). En Jest la animación no corre: se prueba `desplazamiento`. Que en el teléfono se mueva sola se revisa a mano |
+
+### Reanudar sin salto: `src/utils/__tests__/animacion-test.ts` (5)
+`tiempoRestante`: al reanudar una animación pausada se termina solo lo que faltaba de la vuelta en curso.
+| Prueba | Qué asegura |
+|---|---|
+| Vueltas (4) | Desde 0 una vuelta entera; a la mitad, media; casi al final, casi nada; pasada una vuelta, solo lo de la actual |
+| Otra medida | Sirve para vueltas de 2π (giro de la esfera) |
+
+### Arrastrar las sugerencias: `src/features/inicio/__tests__/sugerencias-test.tsx` (8)
+Cada fila de sugerencias del Inicio se mueve sola y se puede arrastrar con el
+dedo (F12). El gesto se simula con `fireGestureHandler` de Gesture Handler y el
+movimiento se lee con `getAnimatedStyle` de Reanimated.
+| Prueba | Qué asegura |
+|---|---|
+| Sigue al dedo | +50 pt de dedo = +50 pt de fila, vaya sola a la derecha o a la izquierda |
+| Más de una vuelta | Arrastrar mucho no deja huecos ni se sale de la franja de una copia |
+| Impulso en puntos | Al soltar, la velocidad va en pt/s con el sentido del dedo (en vueltas, Reanimated cortaba el frenado a ~400 pt/s) |
+| Sin medir | Antes de conocer el ancho, arrastrar no la mueve |
+| Solo en horizontal | Se activa a los 10 pt en horizontal y en vertical cede el scroll a la página |
+| En vivo | Con el dedo, la fila 0 y la 1 se mueven lo que se arrastra |
+| Soltar despacio | A 300 pt/s sigue deslizándose y frena suave, sin cortarse de golpe |
+| Al soltar | Frena y vuelve a moverse sola desde donde quedó (sin saltar) |
+
+### Espacio activo: `src/features/inicio/__tests__/espacio-test.ts` (5)
+| Prueba | Qué asegura |
+|---|---|
+| De la sesión | Usa `empresaActivaId` (el `tid` del token) |
+| Token sin empresa | La primera empresa donde ya es miembro activo |
+| Sin empresas | Su espacio personal |
+| Solicitud en espera | Nunca es el espacio activo |
+| Sin nada | Ninguno |
+
+### Texto: `src/utils/__tests__/texto-test.ts` (13)
+`quitarAcentos`, `iniciales` (F30), `conPunto` (F33) y `primerNombre` (F12).
 | Prueba | Qué asegura |
 |---|---|
 | Quitar acentos | Tildes, diéresis y ñ |
@@ -491,6 +544,7 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
 | Un nombre | Una letra |
 | Espacios de más | Se ignoran y sale en mayúsculas |
 | Vacío | Devuelve vacío |
+| Primer nombre (4) | "Andrea Ruiz" → "Andrea"; espacios de más; un nombre; vacío |
 | Cerrar con punto (3) | Agrega el punto final sin duplicarlo ("ACCONS S.A.S." no queda "S.A.S..") ni tras "?" |
 
 ## Comprobación de que las pruebas sirven
@@ -541,6 +595,29 @@ Según la propuesta de `docs/api/empresas-borrador-frontend.md` (B35 y B39).
   "Ahora no" que deja a la persona trabada (1), preguntar con acceso inmediato
   (1), prometer avisos sin permiso (2) y ofrecerlos con la solicitud aprobada
   (1). Luego se restauró.
+- 21 nov 2026 (pausa del Inicio): nunca pausar (falló 1) y reanudar con una
+  vuelta entera, que da un salto (4). Luego se restauró.
+- 21 nov 2026 (sugerencias del Inicio): todas hacia el mismo lado (falló 1) y
+  recorrer media copia (2). Luego se restauró.
+- 21 nov 2026 (Inicio): contar una solicitud pendiente como espacio activo
+  (falló 1), decir siempre "para tu despacho" (1), avatar sin destino (1),
+  `/auth/me` sin empresas (12) y un aviso que no se va (1). Luego se restauró.
+- 24 nov 2026 (Inicio sobre `main`, antes de la PR, en copia limpia):
+  ignorar la empresa de la sesión (falló 1) y no pausar nunca las animaciones
+  (1). Luego se restauró.
+- 27 nov 2026 (arrastrar las sugerencias): sin ceder el scroll vertical
+  (falló 1), arrastre que ignora la dirección de la fila (2), sin el contador
+  al soltar (1; la fila se quedaba quieta si se agarraba y soltaba rápido, por
+  eso existe) y sin llevar el avance a una vuelta (1). Luego se restauró.
+- 27 nov 2026 (fluidez al soltar, tras probar en el teléfono): impulso en
+  vueltas en vez de puntos (fallaron 2; era la traba que se veía), frenado
+  brusco 0,97 (1), no reanudar al soltar (1) y reanudar sin llevar el avance
+  a la vuelta (1). Luego se restauró. El reanudar quedó en el hilo de UI, sin
+  pasar por React, así que el contador del control anterior ya no existe.
+- 27 nov 2026 (curva de las cajas del código): con la curva como texto
+  `"cubic-bezier(...)"`, que en Android rompe la pantalla, `npm run tipos`
+  marca el error (1). Antes no lo marcaba porque `expo-env.d.ts` traía los
+  tipos de web; ahora `tsconfig.tipos.json` lo deja fuera. Luego se restauró.
 - 21 nov 2026 (salir sin pasar por el Splash): volver siempre al Splash
   (fallaron 3), dar la app por abierta sin haber entrado (1) y que el atrás del
   teléfono no saliera (1). Luego se restauró.

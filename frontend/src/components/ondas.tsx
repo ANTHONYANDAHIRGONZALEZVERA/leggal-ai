@@ -26,6 +26,14 @@ const juegos = {
       { d: 'M0 55 C 65 76, 130 76, 195 55 S 325 34, 390 55 S 520 76, 585 55 S 715 34, 780 55 V80 H0Z', color: 'rgba(14,143,163,0.20)', duracion: 12000, inversa: true },
     ],
   },
+  // Inicio (F12): dos ondas suaves al pie de la esfera, como en el diseño.
+  inicio: {
+    alto: 90,
+    capas: [
+      { d: 'M0 50 C 65 20, 130 20, 195 50 S 325 80, 390 50 S 520 20, 585 50 S 715 80, 780 50 V90 H0Z', color: 'rgba(124,92,255,0.14)', duracion: 13000 },
+      { d: 'M0 60 C 65 85, 130 85, 195 60 S 325 35, 390 60 S 520 85, 585 60 S 715 35, 780 60 V90 H0Z', color: 'rgba(14,143,163,0.12)', duracion: 19000, inversa: true },
+    ],
+  },
   // Registro: una sola onda tenue detrás del título.
   registro: {
     alto: 70,
@@ -37,10 +45,12 @@ const juegos = {
 
 type Props = {
   juego: keyof typeof juegos;
+  /** Detiene las ondas donde van (pantalla que no está a la vista). */
+  pausada?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-export function Ondas({ juego, style }: Props) {
+export function Ondas({ juego, pausada, style }: Props) {
   const { width } = useWindowDimensions();
   const reducido = useReducedMotion();
   const { alto, capas } = juegos[juego];
@@ -70,6 +80,7 @@ export function Ondas({ juego, style }: Props) {
               animationIterationCount: 'infinite',
               animationTimingFunction: 'linear',
               animationDirection: capa.inversa ? 'reverse' : 'normal',
+              animationPlayState: pausada ? 'paused' : 'running',
             },
           ]}>
           <Canvas style={{ width: width * 2, height: alto }}>

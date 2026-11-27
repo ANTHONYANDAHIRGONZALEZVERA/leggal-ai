@@ -6,6 +6,14 @@ import { setUpTests } from 'react-native-reanimated';
 // agrega sus utilidades de prueba (por ejemplo, leer estilos animados).
 setUpTests();
 
+// Gesture Handler (además de su jestSetup, en package.json) pide al cargarse
+// el hilo de UI de Worklets, que en Jest no existe y lanza un error al
+// terminar la prueba. Se le da uno vacío; lo demás de Worklets queda igual.
+jest.mock('react-native-worklets', () => ({
+  ...jest.requireActual('react-native-worklets'),
+  getUIRuntimeHolder: () => ({}),
+}));
+
 // El almacén cifrado del teléfono no existe en Jest: se reemplaza por uno en
 // memoria con las mismas funciones. Las pruebas lo vacían con __vaciar().
 jest.mock('expo-secure-store', () => {

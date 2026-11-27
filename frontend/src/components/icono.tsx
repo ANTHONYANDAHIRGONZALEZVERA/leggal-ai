@@ -38,6 +38,13 @@ const trazos = {
   // Balanza del diseño con los platillos en curvas (c) en vez de arcos (a): en
   // el teléfono el trazo con arcos no se dibujaba.
   balanza: { d: 'M12 3v18M5 7h14M7 7l-3 7c0 4 6 4 6 0zM17 7l-3 7c0 4 6 4 6 0zM8 21h8', grosor: 1.8 },
+  // Inicio (F12): encabezado, sugerencias del asistente y micrófono.
+  abajo: { d: 'M6 9l6 6 6-6', grosor: 2 },
+  calendario: { d: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4', grosor: 2 },
+  comparar: { d: 'M8 4v16M16 4v16M4 8l4-4 4 4M12 16l4 4 4-4', grosor: 2 },
+  personas: { d: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 7M22 21a7 7 0 0 0-4-6', grosor: 2 },
+  red: { d: 'M6 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM18 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM10 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM8 7l8 1M7 8l2 8M17 10l-6 7', grosor: 2 },
+  microfono: { d: 'M12 3c1.7 0 3 1.3 3 3v5c0 1.7-1.3 3-3 3s-3-1.3-3-3V6c0-1.7 1.3-3 3-3zM5 11c0 3.9 3.1 7 7 7s7-3.1 7-7M12 18v3', grosor: 2 },
 } as const;
 
 // Logo de Google: cuatro rellenos de color en un viewBox 48×48.
